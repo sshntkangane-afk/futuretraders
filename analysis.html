@@ -278,6 +278,34 @@ nav{
 .plan-rows span:last-child{font-family:'JetBrains Mono',monospace;font-weight:700}
 .plan-note{font-size:12px;color:var(--text-dim);margin-top:14px;line-height:1.6}
 
+/* share + telegram */
+.share-strip{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:4px 0 18px}
+.share-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'Sora',sans-serif;font-weight:700;font-size:14px;
+  padding:12px 24px;border-radius:10px;border:none;cursor:pointer;
+  transition:transform .15s, box-shadow .2s;
+}
+.share-btn:hover{transform:translateY(-2px)}
+.share-btn.wa{background:#25D366;color:#06281a;box-shadow:0 4px 14px rgba(37,211,102,0.35)}
+.share-btn.cp{background:var(--bg-2);border:1px solid var(--line);color:var(--text)}
+.tg-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  background:linear-gradient(135deg, rgba(42,171,238,0.12), rgba(0,225,255,0.05));
+  border:1px solid rgba(42,171,238,0.45);border-radius:14px;
+  padding:20px 24px;text-decoration:none;margin-bottom:18px;
+  transition:transform .2s, box-shadow .2s;
+}
+.tg-banner:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(42,171,238,0.25)}
+.tg-banner .tg-txt{flex:1;min-width:220px}
+.tg-banner .tg-title{font-weight:800;font-size:17px;color:var(--text)}
+.tg-banner .tg-sub{font-size:13px;color:var(--text-dim)}
+.tg-banner .tg-btn{
+  background:#2AABEE;color:#04202f;font-weight:800;font-size:14px;
+  padding:12px 26px;border-radius:10px;white-space:nowrap;
+  box-shadow:0 4px 14px rgba(42,171,238,0.4);
+}
+
 .disclaimer{
   max-width:900px;margin:10px auto 0;text-align:center;
   font-size:11.5px;color:var(--text-dim);opacity:.8;line-height:1.7;
@@ -428,6 +456,21 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
       </div>
       <p class="plan-note" id="planNote"></p>
     </div>
+
+    <!-- SHARE -->
+    <div class="share-strip">
+      <button class="share-btn wa" id="waShare">💬 WhatsApp par Share karo</button>
+      <button class="share-btn cp" id="copyLink">🔗 Link Copy karo</button>
+    </div>
+
+    <!-- TELEGRAM BANNER -->
+    <a class="tg-banner" href="https://t.me/Future_Traders_In" target="_blank" rel="noopener">
+      <div class="tg-txt">
+        <div class="tg-title">🔔 FREE Signals &amp; Market Updates</div>
+        <div class="tg-sub">Nifty, Bank Nifty, Stocks, Crypto &amp; Gold — daily analysis ke liye Future Traders Telegram channel join karo</div>
+      </div>
+      <span class="tg-btn">Join Channel →</span>
+    </a>
 
     <p class="disclaimer">
       ⚠️ <b>Disclaimer:</b> This analysis is generated automatically from historical price data for educational purposes only.
@@ -989,7 +1032,7 @@ function drawChart(allBars, trend, sr){
 /* =====================================================================
    RENDER RESULTS
    ===================================================================== */
-let currentBars=null, currentTrend=null, currentSR=null;
+let currentBars=null, currentTrend=null, currentSR=null, shareText='';
 
 function render(meta, bars){
   CUR = meta.currency==='INR' ? '₹' : meta.currency==='USD' ? '$' : (meta.currency? meta.currency+' ' : '');
@@ -1148,6 +1191,26 @@ function render(meta, bars){
       `Beech mein (range ke andar) price choppy rehta hai. Entry ke baad stop-loss zaroor lagayein.`;
   }
 
+  // share text for WhatsApp / copy
+  const deepLink = `${location.origin}${location.pathname}?s=${encodeURIComponent(meta.symbol)}`;
+  const buyLine = plan.breakout===1
+    ? `▲ Buy zone: ${fmtNum(plan.buyRetest)} – ${fmtNum(plan.price)} (breakout ho chuka)`
+    : `▲ Buy above: ${fmtNum(plan.buyTrigger)}`;
+  const sellLine = plan.breakout===-1
+    ? `▼ Sell zone: ${fmtNum(plan.price)} – ${fmtNum(plan.sellRetest)} (breakdown ho chuka)`
+    : `▼ Sell below: ${fmtNum(plan.sellTrigger)}`;
+  shareText = [
+    `📊 ${el('rName').textContent} — ${fmtNum(price)} (${chg>=0?'▲':'▼'} ${chgPct>=0?'+':''}${chgPct.toFixed(2)}%)`,
+    `⚡ Verdict: ${verdict.label}`,
+    buyLine,
+    sellLine,
+    ``,
+    `Pura FREE analysis (support/resistance, trend, patterns) yahan dekho:`,
+    deepLink,
+    ``,
+    `— Future Traders ⚡ t.me/Future_Traders_In`,
+  ].join('\n');
+
   // show + draw
   el('results').classList.add('show');
   requestAnimationFrame(()=> drawChart(bars, trend, sr));
@@ -1276,6 +1339,22 @@ el('chips').addEventListener('click', e=>{
   if(!chip) return;
   el('q').value = chip.textContent;
   analyze(chip.dataset.s, true);
+});
+
+el('waShare').addEventListener('click', ()=>{
+  if(shareText) window.open('https://wa.me/?text='+encodeURIComponent(shareText), '_blank', 'noopener');
+});
+el('copyLink').addEventListener('click', async ()=>{
+  if(!shareText) return;
+  try{ await navigator.clipboard.writeText(shareText); }
+  catch(_){
+    const ta = document.createElement('textarea');
+    ta.value = shareText; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = el('copyLink'), old = b.textContent;
+  b.textContent = '✅ Copy ho gaya!';
+  setTimeout(()=> b.textContent = old, 2000);
 });
 
 window.addEventListener('resize', ()=>{
