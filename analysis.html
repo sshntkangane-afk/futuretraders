@@ -441,30 +441,38 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
 
 <script>
 /* =====================================================================
-   DATA LAYER — Yahoo Finance via public CORS proxies (with fallbacks)
+   DATA LAYER — Yahoo Finance, direct first (chart API sends CORS
+   headers), then public CORS proxies as fallbacks
    ===================================================================== */
-const PROXIES = [
-  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+const SOURCES = [
+  { wrap: u => u,                                                            parse: r => r.json() },
+  { wrap: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,         parse: r => r.json() },
+  { wrap: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,parse: r => r.json() },
+  { wrap: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,parse: async r => JSON.parse((await r.json()).contents) },
+  { wrap: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`, parse: r => r.json() },
 ];
 
 async function fetchJSON(url){
   let lastErr;
-  for(const wrap of PROXIES){
+  for(const src of SOURCES){
     try{
-      const res = await fetch(wrap(url), {signal: AbortSignal.timeout(12000)});
+      const res = await fetch(src.wrap(url), {signal: AbortSignal.timeout(10000)});
       if(!res.ok) throw new Error('HTTP '+res.status);
-      const j = await res.json();
+      const j = await src.parse(res);
       if(j) return j;
     }catch(e){ lastErr = e; }
   }
   throw lastErr || new Error('All data sources failed');
 }
 
+/* try both Yahoo hosts before giving up */
+async function fetchYahoo(path){
+  try{ return await fetchJSON('https://query1.finance.yahoo.com'+path); }
+  catch(_){ return await fetchJSON('https://query2.finance.yahoo.com'+path); }
+}
+
 async function searchSymbols(q){
-  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`;
-  const j = await fetchJSON(url);
+  const j = await fetchYahoo(`/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8&newsCount=0`);
   const quotes = (j.quotes||[]).filter(x => x.symbol && (x.quoteType==='EQUITY' || x.quoteType==='INDEX' || x.quoteType==='ETF'));
   // prefer NSE, then BSE, then rest
   const rank = x => x.exchange==='NSI' ? 0 : x.exchange==='BSE' ? 1 : 2;
@@ -473,8 +481,7 @@ async function searchSymbols(q){
 }
 
 async function fetchChart(symbol){
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false`;
-  const j = await fetchJSON(url);
+  const j = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false`);
   const r = j.chart && j.chart.result && j.chart.result[0];
   if(!r || !r.timestamp) throw new Error('No data for this symbol');
   const q = r.indicators.quote[0];
@@ -1105,7 +1112,7 @@ async function analyze(symbolOrQuery, isSymbol){
     el('results').scrollIntoView({behavior:'smooth', block:'start'});
   }catch(e){
     console.error(e);
-    showError(`“${q}” ka data nahi mila. Sahi NSE symbol try karein (e.g. RELIANCE, TCS, TATAMOTORS) — ya thodi der baad dobara try karein.`);
+    showError(`“${q}” ka data abhi nahi mila. Ek baar phir ANALYZE dabayein (backup source try hoga) — ya sahi NSE symbol likhein (e.g. RELIANCE, TCS, TATAMOTORS).`);
   }
 }
 
