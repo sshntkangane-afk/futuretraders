@@ -416,12 +416,12 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
       <h3><span class="ico">🗺️</span> TRADING PLAN — BUY / SELL LEVELS</h3>
       <div class="plan-grid">
         <div class="plan-box plan-buy">
-          <div class="plan-label up">▲ Buying iske upar (Buy Above)</div>
+          <div class="plan-label up" id="buyLabel">▲ Buying iske upar (Buy Above)</div>
           <div class="plan-level up" id="buyLevel">—</div>
           <div class="plan-rows" id="buyRows"></div>
         </div>
         <div class="plan-box plan-sell">
-          <div class="plan-label down">▼ Selling iske niche (Sell Below)</div>
+          <div class="plan-label down" id="sellLabel">▼ Selling iske niche (Sell Below)</div>
           <div class="plan-level down" id="sellLevel">—</div>
           <div class="plan-rows" id="sellRows"></div>
         </div>
@@ -589,6 +589,32 @@ function supportResistance(bars){
   return {supports, resistances, highs, lows};
 }
 
+/* fresh breakout/breakdown: a strong level crossed within the last 7 bars */
+function detectBreakout(bars, sr){
+  const closes = bars.map(b=>b.c);
+  const last = closes.length-1;
+  const price = closes[last];
+  // bullish: broken resistance now sits just below price (in supports)
+  for(const s of sr.supports){
+    if(s.touches < 2 || s.level < price*0.90) continue;
+    for(let i=last; i>last-7 && i>0; i--){
+      if(closes[i] > s.level*1.002 && closes[i-1] <= s.level*1.002){
+        return {dir:1, level:s.level, barsAgo:last-i};
+      }
+    }
+  }
+  // bearish: broken support now sits just above price (in resistances)
+  for(const r of sr.resistances){
+    if(r.touches < 2 || r.level > price*1.10) continue;
+    for(let i=last; i>last-7 && i>0; i--){
+      if(closes[i] < r.level*0.998 && closes[i-1] >= r.level*0.998){
+        return {dir:-1, level:r.level, barsAgo:last-i};
+      }
+    }
+  }
+  return null;
+}
+
 function pivotPoints(bars){
   const d = bars[bars.length-1]; // most recent completed day
   const P = (d.h + d.l + d.c)/3;
@@ -623,12 +649,23 @@ function analyseTrend(bars){
   return {dir, strength, sma20, sma50, sma200, slope20, rsi:r, macd:m, s20, s50, s200};
 }
 
-function detectPatterns(bars, swings, trend){
+function detectPatterns(bars, swings, trend, bo){
   const price = bars[bars.length-1].c;
   const closes = bars.map(b=>b.c);
   const pats = [];
   const {highs, lows} = swings;
   const near = (a,b,pct)=> Math.abs(a-b)/b*100 < pct;
+
+  // fresh breakout / breakdown (highest priority)
+  if(bo && bo.dir===1){
+    pats.push({ico:'🚀', name:'Fresh Resistance Breakout!', bias:1,
+      desc:`Price broke above the ${fmtNum(bo.level)} resistance ${bo.barsAgo===0?'today':bo.barsAgo+' day(s) ago'}. `+
+           `Broken resistance now acts as support — dips toward ${fmtNum(bo.level)} are buying opportunities, but a close back below it means the breakout failed.`});
+  }else if(bo && bo.dir===-1){
+    pats.push({ico:'💥', name:'Fresh Support Breakdown!', bias:-1,
+      desc:`Price broke below the ${fmtNum(bo.level)} support ${bo.barsAgo===0?'today':bo.barsAgo+' day(s) ago'}. `+
+           `Broken support now acts as resistance — pullbacks toward ${fmtNum(bo.level)} are selling opportunities, but a close back above it means the breakdown failed.`});
+  }
 
   // recent swing structure (last 3 highs / lows)
   const rh = highs.slice(-3), rl = lows.slice(-3);
@@ -736,22 +773,43 @@ function computeVerdict(bars, trend, patterns){
   return {score, norm, label, cls, votes};
 }
 
-function buildPlan(bars, sr, piv){
+function buildPlan(bars, sr, piv, bo){
   const price = bars[bars.length-1].c;
   const res = sr.resistances.map(r=>r.level);
   const sup = sr.supports.map(s=>s.level);
+  const breakout = bo ? bo.dir : 0;
 
-  const buyTrigger  = res[0] ?? piv.R1;
-  const buyT1 = res[1] ?? Math.max(piv.R2, buyTrigger*1.02);
-  const buyT2 = res[2] ?? Math.max(piv.R3, buyTrigger*1.045);
-  const buySL = sup[0] ?? buyTrigger*0.97;
+  let buyTrigger, buyT1, buyT2, buySL, buyRetest = null;
+  if(breakout===1){
+    // breakout already done: entry = CMP or retest of broken level
+    buyRetest  = bo.level;
+    buyTrigger = price;
+    buyT1 = res[0] ?? price*1.04;
+    buyT2 = res[1] ?? Math.max(piv.R2, price*1.08);
+    buySL = bo.level*0.98;
+  }else{
+    buyTrigger = res[0] ?? piv.R1;
+    buyT1 = res[1] ?? Math.max(piv.R2, buyTrigger*1.02);
+    buyT2 = res[2] ?? Math.max(piv.R3, buyTrigger*1.045);
+    buySL = sup[0] ?? buyTrigger*0.97;
+  }
 
-  const sellTrigger = sup[0] ?? piv.S1;
-  const sellT1 = sup[1] ?? Math.min(piv.S2, sellTrigger*0.98);
-  const sellT2 = sup[2] ?? Math.min(piv.S3, sellTrigger*0.955);
-  const sellSL = res[0] ?? sellTrigger*1.03;
+  let sellTrigger, sellT1, sellT2, sellSL, sellRetest = null;
+  if(breakout===-1){
+    // breakdown already done: entry = CMP or pullback to broken level
+    sellRetest  = bo.level;
+    sellTrigger = price;
+    sellT1 = sup[0] ?? price*0.96;
+    sellT2 = sup[1] ?? Math.min(piv.S2, price*0.92);
+    sellSL = bo.level*1.02;
+  }else{
+    sellTrigger = sup[0] ?? piv.S1;
+    sellT1 = sup[1] ?? Math.min(piv.S2, sellTrigger*0.98);
+    sellT2 = sup[2] ?? Math.min(piv.S3, sellTrigger*0.955);
+    sellSL = res[0] ?? sellTrigger*1.03;
+  }
 
-  return {price, buyTrigger, buyT1, buyT2, buySL, sellTrigger, sellT1, sellT2, sellSL};
+  return {price, breakout, buyTrigger, buyT1, buyT2, buySL, buyRetest, sellTrigger, sellT1, sellT2, sellSL, sellRetest};
 }
 
 /* =====================================================================
@@ -956,9 +1014,10 @@ function render(meta, bars){
   const trend = analyseTrend(bars);
   const sr = supportResistance(bars);
   const piv = pivotPoints(bars);
-  const patterns = detectPatterns(bars, sr, trend);
+  const bo = detectBreakout(bars, sr);
+  const patterns = detectPatterns(bars, sr, trend, bo);
   const verdict = computeVerdict(bars, trend, patterns);
-  const plan = buildPlan(bars, sr, piv);
+  const plan = buildPlan(bars, sr, piv, bo);
 
   currentBars = bars; currentTrend = trend; currentSR = sr;
 
@@ -1019,30 +1078,75 @@ function render(meta, bars){
   ].map(([n,v,c])=>`<tr><td><span class="tag ${c}">${n}</span></td><td>${fmtNum(v)}</td></tr>`).join('');
 
   // trade plan
-  el('buyLevel').textContent = fmtNum(plan.buyTrigger);
-  const buyRR = (plan.buyT1-plan.buyTrigger)/(plan.buyTrigger-plan.buySL);
-  el('buyRows').innerHTML = [
-    ['Entry (on breakout close above)', fmtNum(plan.buyTrigger)],
-    ['Target 1', fmtNum(plan.buyT1)],
-    ['Target 2', fmtNum(plan.buyT2)],
-    ['Stop Loss', fmtNum(plan.buySL)],
-    ['Risk : Reward (T1)', isFinite(buyRR)&&buyRR>0 ? '1 : '+buyRR.toFixed(1) : '—'],
-  ].map(([a,b])=>`<div><span>${a}</span><span>${b}</span></div>`).join('');
+  const rowsHTML = rows => rows.map(([a,b])=>`<div><span>${a}</span><span>${b}</span></div>`).join('');
+  if(plan.breakout===1){
+    el('buyLabel').textContent = '▲ Breakout ho chuka — Buy Zone';
+    el('buyLevel').textContent = `${fmtNum(plan.buyRetest)} – ${fmtNum(plan.price)}`;
+    const rr = (plan.buyT1-plan.buyRetest)/(plan.buyRetest-plan.buySL);
+    el('buyRows').innerHTML = rowsHTML([
+      ['Broken resistance (ab support)', fmtNum(plan.buyRetest)],
+      ['Entry (aggressive)', 'CMP '+fmtNum(plan.price)],
+      ['Entry (safe — retest par)', fmtNum(plan.buyRetest)],
+      ['Target 1', fmtNum(plan.buyT1)],
+      ['Target 2', fmtNum(plan.buyT2)],
+      ['Stop Loss', fmtNum(plan.buySL)],
+      ['Risk : Reward (retest entry)', isFinite(rr)&&rr>0 ? '1 : '+rr.toFixed(1) : '—'],
+    ]);
+  }else{
+    el('buyLabel').textContent = '▲ Buying iske upar (Buy Above)';
+    el('buyLevel').textContent = fmtNum(plan.buyTrigger);
+    const buyRR = (plan.buyT1-plan.buyTrigger)/(plan.buyTrigger-plan.buySL);
+    el('buyRows').innerHTML = rowsHTML([
+      ['Entry (on breakout close above)', fmtNum(plan.buyTrigger)],
+      ['Target 1', fmtNum(plan.buyT1)],
+      ['Target 2', fmtNum(plan.buyT2)],
+      ['Stop Loss', fmtNum(plan.buySL)],
+      ['Risk : Reward (T1)', isFinite(buyRR)&&buyRR>0 ? '1 : '+buyRR.toFixed(1) : '—'],
+    ]);
+  }
 
-  el('sellLevel').textContent = fmtNum(plan.sellTrigger);
-  const sellRR = (plan.sellTrigger-plan.sellT1)/(plan.sellSL-plan.sellTrigger);
-  el('sellRows').innerHTML = [
-    ['Entry (on breakdown close below)', fmtNum(plan.sellTrigger)],
-    ['Target 1', fmtNum(plan.sellT1)],
-    ['Target 2', fmtNum(plan.sellT2)],
-    ['Stop Loss', fmtNum(plan.sellSL)],
-    ['Risk : Reward (T1)', isFinite(sellRR)&&sellRR>0 ? '1 : '+sellRR.toFixed(1) : '—'],
-  ].map(([a,b])=>`<div><span>${a}</span><span>${b}</span></div>`).join('');
+  if(plan.breakout===-1){
+    el('sellLabel').textContent = '▼ Breakdown ho chuka — Sell Zone';
+    el('sellLevel').textContent = `${fmtNum(plan.price)} – ${fmtNum(plan.sellRetest)}`;
+    const rr = (plan.sellRetest-plan.sellT1)/(plan.sellSL-plan.sellRetest);
+    el('sellRows').innerHTML = rowsHTML([
+      ['Broken support (ab resistance)', fmtNum(plan.sellRetest)],
+      ['Entry (aggressive)', 'CMP '+fmtNum(plan.price)],
+      ['Entry (safe — pullback par)', fmtNum(plan.sellRetest)],
+      ['Target 1', fmtNum(plan.sellT1)],
+      ['Target 2', fmtNum(plan.sellT2)],
+      ['Stop Loss', fmtNum(plan.sellSL)],
+      ['Risk : Reward (pullback entry)', isFinite(rr)&&rr>0 ? '1 : '+rr.toFixed(1) : '—'],
+    ]);
+  }else{
+    el('sellLabel').textContent = '▼ Selling iske niche (Sell Below)';
+    el('sellLevel').textContent = fmtNum(plan.sellTrigger);
+    const sellRR = (plan.sellTrigger-plan.sellT1)/(plan.sellSL-plan.sellTrigger);
+    el('sellRows').innerHTML = rowsHTML([
+      ['Entry (on breakdown close below)', fmtNum(plan.sellTrigger)],
+      ['Target 1', fmtNum(plan.sellT1)],
+      ['Target 2', fmtNum(plan.sellT2)],
+      ['Stop Loss', fmtNum(plan.sellSL)],
+      ['Risk : Reward (T1)', isFinite(sellRR)&&sellRR>0 ? '1 : '+sellRR.toFixed(1) : '—'],
+    ]);
+  }
 
-  el('planNote').innerHTML =
-    `📌 <b>Simple rule:</b> Jab tak price <b>${fmtNum(plan.buyTrigger)}</b> ke upar close na kare, buying avoid karein — `+
-    `aur <b>${fmtNum(plan.sellTrigger)}</b> ke niche close hone par hi selling/short ka socheiN. `+
-    `Beech mein (range ke andar) price choppy rehta hai. Entry ke baad stop-loss zaroor lagayein.`;
+  if(plan.breakout===1){
+    el('planNote').innerHTML =
+      `📌 <b>Breakout already ho chuka hai</b> — <b>${fmtNum(plan.buyRetest)}</b> ka resistance toot gaya hai, isliye ab "buy above" ka wait mat karo. `+
+      `Do options: CMP <b>${fmtNum(plan.price)}</b> par strict stop-loss ke saath entry, ya (better) price ke <b>${fmtNum(plan.buyRetest)}</b> ke paas retest ka wait karo — wahan risk:reward best milta hai. `+
+      `Agar price <b>${fmtNum(plan.buySL)}</b> ke niche close kare to breakout fail — exit kar dena.`;
+  }else if(plan.breakout===-1){
+    el('planNote').innerHTML =
+      `📌 <b>Breakdown already ho chuka hai</b> — <b>${fmtNum(plan.sellRetest)}</b> ka support toot gaya hai. `+
+      `Short CMP par strict stop-loss ke saath, ya (better) <b>${fmtNum(plan.sellRetest)}</b> tak pullback ka wait karo. `+
+      `Agar price <b>${fmtNum(plan.sellSL)}</b> ke upar close kare to breakdown fail — exit kar dena.`;
+  }else{
+    el('planNote').innerHTML =
+      `📌 <b>Simple rule:</b> Jab tak price <b>${fmtNum(plan.buyTrigger)}</b> ke upar close na kare, buying avoid karein — `+
+      `aur <b>${fmtNum(plan.sellTrigger)}</b> ke niche close hone par hi selling/short ka socheiN. `+
+      `Beech mein (range ke andar) price choppy rehta hai. Entry ke baad stop-loss zaroor lagayein.`;
+  }
 
   // show + draw
   el('results').classList.add('show');
