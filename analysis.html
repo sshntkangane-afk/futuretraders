@@ -1410,16 +1410,17 @@ const NIFTY50 = [
 
 function evalBreakout(bars){
   const price = bars[bars.length-1].c;
+  const hi = Math.max(...bars.map(b=>b.h)); // 6-month high — the real breakout barrier
   const sr = supportResistance(bars);
   const bo = detectBreakout(bars, sr);
-  if(bo && bo.dir===1 && bo.barsAgo<=5){
+  // fresh: broke a strong level recently AND is trading at/near the 6-month high
+  // (a break of some minor mid-range level doesn't count)
+  if(bo && bo.dir===1 && bo.barsAgo<=5 && price >= hi*0.97 && bo.level >= hi*0.90){
     return {status:'fresh', level:bo.level, dist:(price-bo.level)/bo.level*100, price};
   }
-  const r0 = sr.resistances[0];
-  if(r0 && r0.touches>=2){
-    const d = (r0.level-price)/price*100;
-    if(d <= 2.5) return {status:'near', level:r0.level, dist:d, price};
-  }
+  // near: within 2.5% of the 6-month high itself
+  const d = (hi-price)/price*100;
+  if(d <= 2.5) return {status:'near', level:hi, dist:d, price};
   return null;
 }
 
@@ -1469,7 +1470,7 @@ async function runScan(){
           : '<span class="tag tag-strong">⚡ BREAKOUT KE PAAS</span>'}</td>
       </tr>`).join('');
     el('scanTableWrap').style.display = 'block';
-    el('scanNote').textContent = `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = resistance se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
+    el('scanNote').textContent = `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = 6 mahine ke high se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
   }else{
     el('scanNote').textContent = failed >= NIFTY50.length
       ? 'Data load nahi hua — thodi der baad phir SCAN karo.'
