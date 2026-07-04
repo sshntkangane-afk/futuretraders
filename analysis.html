@@ -144,6 +144,20 @@ nav{
 }
 .chip:hover{border-color:var(--gold);color:var(--gold)}
 
+/* ===== SCANNER ===== */
+.scanner-card{max-width:860px;margin:30px auto 0}
+.scanner-card .sub{font-family:'Sora',sans-serif;font-size:11px;color:var(--text-dim);letter-spacing:0;text-transform:none}
+.scan-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.scan-head .go-btn{padding:12px 22px}
+.scan-progress{flex:1;min-width:200px;display:flex;align-items:center;gap:10px}
+.scan-bar{flex:1;height:8px;background:var(--bg-2);border-radius:99px;overflow:hidden}
+#scanFill{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--green));transition:width .25s}
+#scanTxt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);white-space:nowrap}
+#scanTableWrap{overflow-x:auto;margin-top:12px}
+.scan-row{cursor:pointer}
+.scan-row:hover td{background:rgba(245,184,0,0.06)}
+.scan-note{font-size:11.5px;color:var(--text-dim);margin-top:10px}
+
 /* ===== STATES ===== */
 .status{max-width:640px;margin:26px auto;text-align:center;color:var(--text-dim);font-size:14px;display:none}
 .status.show{display:block}
@@ -350,6 +364,25 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
     </div>
   </div>
 
+  <!-- BREAKOUT SCANNER -->
+  <div class="card scanner-card">
+    <h3><span class="ico">🚀</span> BREAKOUT SCANNER <span class="sub">— Nifty 50 stocks mein se kaun breakout ke paas hai, ek click mein dekho</span></h3>
+    <div class="scan-head">
+      <button class="go-btn" id="scanBtn">SCAN KARO</button>
+      <div class="scan-progress" id="scanProg" style="display:none">
+        <div class="scan-bar"><div id="scanFill"></div></div>
+        <span id="scanTxt">0/50</span>
+      </div>
+    </div>
+    <div id="scanTableWrap" style="display:none">
+      <table class="lvl-table">
+        <thead><tr><th>Stock</th><th>CMP</th><th>Breakout Level</th><th>Distance</th><th>Status</th></tr></thead>
+        <tbody id="scanBody"></tbody>
+      </table>
+    </div>
+    <p class="scan-note" id="scanNote" style="display:none"></p>
+  </div>
+
   <div class="status" id="status"><div class="spinner"></div><span id="statusText">Fetching data…</span></div>
   <div class="error-box" id="errBox"></div>
 
@@ -523,8 +556,8 @@ async function searchSymbols(q){
   return quotes;
 }
 
-async function fetchChart(symbol){
-  const j = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false`);
+async function fetchChart(symbol, range='1y'){
+  const j = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d&includePrePost=false`);
   const r = j.chart && j.chart.result && j.chart.result[0];
   if(!r || !r.timestamp) throw new Error('No data for this symbol');
   const q = r.indicators.quote[0];
@@ -1359,6 +1392,100 @@ el('copyLink').addEventListener('click', async ()=>{
 
 window.addEventListener('resize', ()=>{
   if(currentBars) drawChart(currentBars, currentTrend, currentSR);
+});
+
+/* =====================================================================
+   BREAKOUT SCANNER — Nifty 50
+   ===================================================================== */
+const NIFTY50 = [
+  'RELIANCE','HDFCBANK','ICICIBANK','BHARTIARTL','TCS','INFY','SBIN','ITC',
+  'HINDUNILVR','LT','BAJFINANCE','KOTAKBANK','AXISBANK','MARUTI','M&M',
+  'SUNPHARMA','NTPC','HCLTECH','ULTRACEMCO','TITAN','POWERGRID','TATAMOTORS',
+  'ASIANPAINT','BAJAJFINSV','ADANIENT','ADANIPORTS','COALINDIA','ONGC',
+  'NESTLEIND','GRASIM','JSWSTEEL','TATASTEEL','HINDALCO','TECHM','WIPRO',
+  'DRREDDY','CIPLA','EICHERMOT','HEROMOTOCO','BAJAJ-AUTO','BRITANNIA',
+  'APOLLOHOSP','INDUSINDBK','SBILIFE','HDFCLIFE','TATACONSUM','SHRIRAMFIN',
+  'TRENT','BEL','JIOFIN',
+];
+
+function evalBreakout(bars){
+  const price = bars[bars.length-1].c;
+  const sr = supportResistance(bars);
+  const bo = detectBreakout(bars, sr);
+  if(bo && bo.dir===1 && bo.barsAgo<=5){
+    return {status:'fresh', level:bo.level, dist:(price-bo.level)/bo.level*100, price};
+  }
+  const r0 = sr.resistances[0];
+  if(r0 && r0.touches>=2){
+    const d = (r0.level-price)/price*100;
+    if(d <= 2.5) return {status:'near', level:r0.level, dist:d, price};
+  }
+  return null;
+}
+
+let scanning = false;
+async function runScan(){
+  if(scanning) return;
+  scanning = true;
+  const btn = el('scanBtn');
+  btn.disabled = true; btn.textContent = 'SCANNING…';
+  el('scanProg').style.display = 'flex';
+  el('scanTableWrap').style.display = 'none';
+  el('scanNote').style.display = 'none';
+  el('scanBody').innerHTML = '';
+
+  const results = [];
+  const queue = [...NIFTY50];
+  let done = 0, failed = 0;
+  const tick = () => {
+    done++;
+    el('scanFill').style.width = (done/NIFTY50.length*100)+'%';
+    el('scanTxt').textContent = `${done}/${NIFTY50.length}`;
+  };
+  await Promise.all(Array.from({length:5}, async ()=>{
+    while(queue.length){
+      const sym = queue.shift();
+      try{
+        const {meta, bars} = await fetchChart(sym+'.NS', '6mo');
+        const r = evalBreakout(bars);
+        if(r) results.push({sym, name: meta.shortName || meta.longName || sym, ...r});
+      }catch(_){ failed++; }
+      tick();
+    }
+  }));
+
+  // fresh breakouts first, then nearest to level
+  results.sort((a,b)=> (a.status===b.status) ? Math.abs(a.dist)-Math.abs(b.dist) : (a.status==='fresh' ? -1 : 1));
+
+  if(results.length){
+    el('scanBody').innerHTML = results.map(r=>`
+      <tr class="scan-row" data-s="${r.sym}.NS">
+        <td style="font-family:'Sora';font-weight:700">${r.sym}</td>
+        <td>${fmtNum(r.price)}</td>
+        <td>${fmtNum(r.level)}</td>
+        <td class="${r.status==='fresh'?'up':'neutral'}">${r.status==='fresh'?'+':''}${r.dist.toFixed(2)}%</td>
+        <td>${r.status==='fresh'
+          ? '<span class="tag tag-sup">🔥 FRESH BREAKOUT</span>'
+          : '<span class="tag tag-strong">⚡ BREAKOUT KE PAAS</span>'}</td>
+      </tr>`).join('');
+    el('scanTableWrap').style.display = 'block';
+    el('scanNote').textContent = `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = resistance se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
+  }else{
+    el('scanNote').textContent = failed >= NIFTY50.length
+      ? 'Data load nahi hua — thodi der baad phir SCAN karo.'
+      : 'Abhi koi stock breakout ke paas nahi hai. Market ke hisaab se ye badalta rehta hai — baad mein phir scan karo.';
+  }
+  el('scanNote').style.display = 'block';
+  el('scanProg').style.display = 'none';
+  btn.disabled = false; btn.textContent = 'SCAN KARO';
+  scanning = false;
+}
+el('scanBtn').addEventListener('click', runScan);
+el('scanBody').addEventListener('click', e=>{
+  const row = e.target.closest('.scan-row');
+  if(!row) return;
+  el('q').value = row.dataset.s.replace('.NS','');
+  analyze(row.dataset.s, true);
 });
 
 /* deep-link support: analysis.html?s=RELIANCE.NS */
