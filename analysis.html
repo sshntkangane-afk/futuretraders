@@ -298,6 +298,24 @@ nav{
 .plan-rows span:last-child{font-family:'JetBrains Mono',monospace;font-weight:700}
 .plan-note{font-size:12px;color:var(--text-dim);margin-top:14px;line-height:1.6}
 
+/* position size calculator */
+.pos-calc{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.pc-title{font-weight:800;font-size:14px;margin-bottom:10px}
+.pc-title span{font-weight:400;font-size:12px;color:var(--text-dim)}
+.pc-inputs{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.pc-inputs label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-dim)}
+.pc-inputs input{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:8px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;
+  padding:9px 12px;width:150px;outline:none;
+}
+.pc-inputs input:focus{border-color:var(--gold)}
+.pc-out{
+  font-size:13.5px;line-height:1.7;color:var(--text);
+  background:rgba(245,184,0,0.06);border:1px dashed rgba(245,184,0,0.35);
+  border-radius:10px;padding:12px 16px;
+}
+
 /* share + telegram */
 .share-strip{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:4px 0 18px}
 .share-btn{
@@ -374,6 +392,10 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
   <div class="card scanner-card">
     <h3><span class="ico">🚀</span> BREAKOUT SCANNER <span class="sub">— Nifty 50 stocks mein se kaun breakout ke paas hai, ek click mein dekho</span></h3>
     <div class="scan-head">
+      <select id="scanType" class="scan-scope">
+        <option value="breakout">🚀 Breakout scan</option>
+        <option value="pullback">🔄 Pullback (dip-buy) scan</option>
+      </select>
       <select id="scanScope" class="scan-scope">
         <option value="50">Nifty 50 — fast (~20 sec)</option>
         <option value="500">Nifty 500 — full (~2 min)</option>
@@ -386,7 +408,7 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
     </div>
     <div id="scanTableWrap" style="display:none">
       <table class="lvl-table">
-        <thead><tr><th>Stock</th><th>CMP</th><th>Breakout Level</th><th>Distance</th><th>Status</th></tr></thead>
+        <thead><tr><th>Stock</th><th>CMP</th><th>Key Level</th><th>Distance</th><th>Status</th></tr></thead>
         <tbody id="scanBody"></tbody>
       </table>
     </div>
@@ -498,6 +520,15 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
         </div>
       </div>
       <p class="plan-note" id="planNote"></p>
+
+      <div class="pos-calc">
+        <div class="pc-title">🧮 Position Size Calculator <span>— kitne shares kharidne chahiye (risk management)</span></div>
+        <div class="pc-inputs">
+          <label>Capital (₹) <input id="pcCap" type="number" min="0" step="1000" value="100000"></label>
+          <label>Risk per trade (%) <input id="pcRisk" type="number" min="0.1" max="10" step="0.5" value="1"></label>
+        </div>
+        <div class="pc-out" id="pcOut">—</div>
+      </div>
     </div>
 
     <!-- SHARE -->
@@ -630,6 +661,18 @@ function macd(closes){
   return {line:line[i], signal:signal[i], hist:line[i]-signal[i]};
 }
 
+function atr(bars, n=14){
+  if(bars.length < n+1) return null;
+  let sum=0, a=null;
+  for(let i=1;i<bars.length;i++){
+    const tr = Math.max(bars[i].h-bars[i].l,
+      Math.abs(bars[i].h-bars[i-1].c), Math.abs(bars[i].l-bars[i-1].c));
+    if(i<=n){ sum+=tr; if(i===n) a=sum/n; }
+    else a = (a*(n-1)+tr)/n;
+  }
+  return a;
+}
+
 /* =====================================================================
    SWINGS + SUPPORT/RESISTANCE
    ===================================================================== */
@@ -730,9 +773,21 @@ function analyseTrend(bars){
   else if(sma50 && price < sma50){ dir='DOWNTREND'; strength='Weak'; }
   else { dir='SIDEWAYS'; strength='—'; }
 
+  // weekly trend (resampled: every 5th trading day ≈ weekly close)
+  const wCloses = [];
+  for(let j=closes.length-1; j>=0; j-=5) wCloses.unshift(closes[j]);
+  let wDir = 'SIDEWAYS';
+  if(wCloses.length >= 12){
+    const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+    const nowS = avg(wCloses.slice(-10)), prevS = avg(wCloses.slice(-11,-1));
+    const wp = wCloses[wCloses.length-1];
+    if(wp > nowS && nowS >= prevS) wDir = 'UP';
+    else if(wp < nowS && nowS <= prevS) wDir = 'DOWN';
+  }
+
   const r = rsi(closes);
   const m = macd(closes);
-  return {dir, strength, sma20, sma50, sma200, slope20, rsi:r, macd:m, s20, s50, s200};
+  return {dir, strength, sma20, sma50, sma200, slope20, rsi:r, macd:m, s20, s50, s200, wDir};
 }
 
 function detectPatterns(bars, swings, trend, bo){
@@ -846,6 +901,8 @@ function computeVerdict(bars, trend, patterns){
     if(trend.rsi<25) add(0.5,'RSI oversold — bounce possible');
   }
   if(trend.macd){ trend.macd.hist>0 ? add(1,'MACD bullish') : add(-1,'MACD bearish'); }
+  if(trend.wDir==='UP') add(1,'weekly trend up');
+  else if(trend.wDir==='DOWN') add(-1,'weekly trend down');
   for(const p of patterns) if(p.bias) add(p.bias, p.name.toLowerCase());
 
   const max = 8;
@@ -1075,7 +1132,30 @@ function drawChart(allBars, trend, sr){
 /* =====================================================================
    RENDER RESULTS
    ===================================================================== */
-let currentBars=null, currentTrend=null, currentSR=null, shareText='';
+let currentBars=null, currentTrend=null, currentSR=null, shareText='', currentPlan=null, currentATR=null;
+
+function updateCalc(){
+  if(!currentPlan) return;
+  const cap = +el('pcCap').value || 0;
+  const riskPct = +el('pcRisk').value || 0;
+  try{ localStorage.setItem('ft_cap', cap); localStorage.setItem('ft_risk', riskPct); }catch(_){}
+  const entry = currentPlan.breakout===1 ? currentPlan.buyRetest : currentPlan.buyTrigger;
+  const sl = currentPlan.buySL;
+  const per = entry - sl;
+  if(per<=0 || !cap || !riskPct){ el('pcOut').textContent='—'; return; }
+  const riskAmt = cap*riskPct/100;
+  let qty = Math.floor(riskAmt/per);
+  let capNote = '';
+  if(qty*entry > cap){ qty = Math.floor(cap/entry); capNote = ' (capital limit ke hisaab se)'; }
+  if(qty < 1){
+    el('pcOut').innerHTML = `Is setup mein 1 share ka risk hi <b>${fmtNum(per)}</b> hai jo aapke risk budget <b>${fmtNum(riskAmt)}</b> se zyada hai — ya to capital badhao, ya ye trade skip karo.`;
+    return;
+  }
+  const atrTxt = currentATR ? ` · SL distance ≈ <b>${(per/currentATR).toFixed(1)}× ATR</b>` : '';
+  el('pcOut').innerHTML =
+    `Buy <b>${qty} shares</b>${capNote} @ entry <b>${fmtNum(entry)}</b> · Investment <b>${fmtNum(qty*entry)}</b> · `+
+    `SL <b>${fmtNum(sl)}</b> hit hua to max loss <b>${fmtNum(qty*per)}</b> (capital ka ${riskPct}%)${atrTxt}`;
+}
 
 function render(meta, bars){
   CUR = meta.currency==='INR' ? '₹' : meta.currency==='USD' ? '$' : (meta.currency? meta.currency+' ' : '');
@@ -1106,6 +1186,7 @@ function render(meta, bars){
   const plan = buildPlan(bars, sr, piv, bo);
 
   currentBars = bars; currentTrend = trend; currentSR = sr;
+  currentPlan = plan; currentATR = atr(bars);
 
   // verdict
   const vb = el('vBadge');
@@ -1124,8 +1205,13 @@ function render(meta, bars){
   const t = trend;
   const trendCls = t.dir==='UPTREND'?'up':t.dir==='DOWNTREND'?'down':'neutral';
   const rsiTxt = t.rsi==null?'—':`${t.rsi.toFixed(1)} ${t.rsi>70?'(Overbought ⚠️)':t.rsi<30?'(Oversold 💡)':t.rsi>=55?'(Bullish zone)':t.rsi<=45?'(Bearish zone)':'(Neutral)'}`;
+  const aligned = (t.dir==='UPTREND' && t.wDir==='UP') || (t.dir==='DOWNTREND' && t.wDir==='DOWN');
+  const wCls = t.wDir==='UP'?'up':t.wDir==='DOWN'?'down':'neutral';
+  const atrV = atr(bars);
   el('trendRows').innerHTML = [
-    row('Primary Trend', `<span class="${trendCls}">${t.dir}${t.strength!=='—'?' · '+t.strength:''}</span>`),
+    row('Primary Trend (Daily)', `<span class="${trendCls}">${t.dir}${t.strength!=='—'?' · '+t.strength:''}</span>`),
+    row('Weekly Trend', `<span class="${wCls}">${t.wDir}${aligned?' · ✓ daily se aligned (swing ke liye best)':''}</span>`),
+    row('ATR (14) — avg daily move', atrV ? `${fmtNum(atrV)} (${(atrV/price*100).toFixed(1)}%)` : '—'),
     row('Price vs 20-Day SMA', cmpTxt(price, t.sma20)),
     row('Price vs 50-Day SMA', cmpTxt(price, t.sma50)),
     row('Price vs 200-Day SMA', cmpTxt(price, t.sma200)),
@@ -1253,6 +1339,8 @@ function render(meta, bars){
     ``,
     `— Future Traders ⚡ t.me/Future_Traders_In`,
   ].join('\n');
+
+  updateCalc();
 
   // show + draw
   el('results').classList.add('show');
@@ -1384,6 +1472,13 @@ el('chips').addEventListener('click', e=>{
   analyze(chip.dataset.s, true);
 });
 
+el('pcCap').addEventListener('input', updateCalc);
+el('pcRisk').addEventListener('input', updateCalc);
+try{
+  if(localStorage.getItem('ft_cap'))  el('pcCap').value  = localStorage.getItem('ft_cap');
+  if(localStorage.getItem('ft_risk')) el('pcRisk').value = localStorage.getItem('ft_risk');
+}catch(_){}
+
 el('waShare').addEventListener('click', ()=>{
   if(shareText) window.open('https://wa.me/?text='+encodeURIComponent(shareText), '_blank', 'noopener');
 });
@@ -1487,6 +1582,24 @@ function evalBreakout(bars){
   return null;
 }
 
+/* swing pullback: uptrend stock that has dipped 2-10% from its 20-day
+   high with RSI cooled off — the classic buy-the-dip swing setup */
+function evalPullback(bars){
+  const closes = bars.map(b=>b.c);
+  const price = closes[closes.length-1];
+  const i = closes.length-1;
+  const s20 = smaSeries(closes,20), s50 = smaSeries(closes,50);
+  if(!s50[i] || !s50[i-10]) return null;
+  // uptrend intact: rising 50-SMA, price at/above it (2% undercut allowed)
+  if(!(price > s50[i]*0.98 && s50[i] > s50[i-10])) return null;
+  const hi20 = Math.max(...bars.slice(-20).map(b=>b.h));
+  const dip = (hi20-price)/hi20*100;
+  if(dip < 2 || dip > 10) return null; // actually pulled back, not crashed
+  const r = rsi(closes);
+  if(r==null || r < 30 || r > 60) return null; // cooled off, not broken
+  return {status:'pullback', level:s20[i], dist:(price-s20[i])/s20[i]*100, price};
+}
+
 let scanning = false;
 async function runScan(){
   if(scanning) return;
@@ -1498,6 +1611,8 @@ async function runScan(){
   el('scanNote').style.display = 'none';
   el('scanBody').innerHTML = '';
 
+  const mode = el('scanType').value;
+  const evaluate = mode==='pullback' ? evalPullback : evalBreakout;
   const universe = el('scanScope').value === '500'
     ? [...NIFTY50, ...NIFTY500_EXTRA]
     : [...NIFTY50];
@@ -1514,7 +1629,7 @@ async function runScan(){
       const sym = queue.shift();
       try{
         const {meta, bars} = await fetchChart(sym+'.NS', '6mo');
-        const r = evalBreakout(bars);
+        const r = evaluate(bars);
         if(r) results.push({sym, name: meta.shortName || meta.longName || sym, ...r});
       }catch(_){ failed++; }
       tick();
@@ -1533,14 +1648,18 @@ async function runScan(){
         <td class="${r.status==='fresh'?'up':'neutral'}">${r.status==='fresh'?'+':''}${r.dist.toFixed(2)}%</td>
         <td>${r.status==='fresh'
           ? '<span class="tag tag-sup">🔥 FRESH BREAKOUT</span>'
+          : r.status==='pullback'
+          ? '<span class="tag tag-sup">🔄 DIP-BUY ZONE</span>'
           : '<span class="tag tag-strong">⚡ BREAKOUT KE PAAS</span>'}</td>
       </tr>`).join('');
     el('scanTableWrap').style.display = 'block';
-    el('scanNote').textContent = `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = 6 mahine ke high se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
+    el('scanNote').textContent = mode==='pullback'
+      ? `${results.length} stock(s) mile · "dip-buy" = uptrend stock jo apne 20-day high se 2-10% pullback mein hai (RSI 30-55) · Key Level = 20-day SMA, uske paas entry dhundo · row par click karke pura analysis dekho${failed?` · ${failed} stocks ka data nahi mila`:''}`
+      : `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = 6 mahine ke high se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
   }else{
     el('scanNote').textContent = failed >= universe.length
       ? 'Data load nahi hua — thodi der baad phir SCAN karo.'
-      : 'Abhi koi stock breakout ke paas nahi hai. Market ke hisaab se ye badalta rehta hai — baad mein phir scan karo.';
+      : `Abhi koi stock ${mode==='pullback'?'dip-buy zone mein':'breakout ke paas'} nahi hai. Market ke hisaab se ye badalta rehta hai — baad mein phir scan karo.`;
   }
   el('scanNote').style.display = 'block';
   el('scanProg').style.display = 'none';
