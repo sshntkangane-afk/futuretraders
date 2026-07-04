@@ -6,6 +6,13 @@
 <title>Stock Analysis — Future Traders</title>
 <meta name="description" content="Free technical analysis tool: support & resistance levels, trend, chart patterns, RSI, MACD and buy/sell levels for NSE stocks & indices." />
 
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#05070d">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -360,7 +367,10 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
 <nav>
   <div class="nav-inner">
     <a href="index.html" class="brand"><span class="brand-name">FUTURE TRADERS</span></a>
-    <a href="https://t.me/Future_Traders_In" target="_blank" class="nav-cta">Join Channel</a>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button id="installBtn" class="nav-cta" style="display:none;background:transparent;border:1px solid var(--green);color:var(--green);box-shadow:none;cursor:pointer;font-family:'Sora',sans-serif">📲 Install App</button>
+      <a href="https://t.me/Future_Traders_In" target="_blank" class="nav-cta">Join Channel</a>
+    </div>
   </div>
 </nav>
 
@@ -1682,6 +1692,27 @@ el('scanBody').addEventListener('click', e=>{
 /* deep-link support: analysis.html?s=RELIANCE.NS */
 const params = new URLSearchParams(location.search);
 if(params.get('s')) { el('q').value = params.get('s'); analyze(params.get('s'), true); }
+
+/* =====================================================================
+   PWA — service worker + install button
+   ===================================================================== */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredInstall = e;
+  el('installBtn').style.display = 'inline-block';
+});
+el('installBtn').addEventListener('click', async ()=>{
+  if(!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  el('installBtn').style.display = 'none';
+});
+window.addEventListener('appinstalled', ()=>{ el('installBtn').style.display='none'; });
 </script>
 </body>
 </html>
