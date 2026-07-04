@@ -149,6 +149,12 @@ nav{
 .scanner-card .sub{font-family:'Sora',sans-serif;font-size:11px;color:var(--text-dim);letter-spacing:0;text-transform:none}
 .scan-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
 .scan-head .go-btn{padding:12px 22px}
+.scan-scope{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:10px;
+  color:var(--text);font-family:'Sora',sans-serif;font-size:13px;
+  padding:12px 14px;outline:none;cursor:pointer;
+}
+.scan-scope:focus{border-color:var(--gold)}
 .scan-progress{flex:1;min-width:200px;display:flex;align-items:center;gap:10px}
 .scan-bar{flex:1;height:8px;background:var(--bg-2);border-radius:99px;overflow:hidden}
 #scanFill{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--green));transition:width .25s}
@@ -368,6 +374,10 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
   <div class="card scanner-card">
     <h3><span class="ico">🚀</span> BREAKOUT SCANNER <span class="sub">— Nifty 50 stocks mein se kaun breakout ke paas hai, ek click mein dekho</span></h3>
     <div class="scan-head">
+      <select id="scanScope" class="scan-scope">
+        <option value="50">Nifty 50 — fast (~20 sec)</option>
+        <option value="500">Nifty 500 — full (~2 min)</option>
+      </select>
       <button class="go-btn" id="scanBtn">SCAN KARO</button>
       <div class="scan-progress" id="scanProg" style="display:none">
         <div class="scan-bar"><div id="scanFill"></div></div>
@@ -1408,6 +1418,59 @@ const NIFTY50 = [
   'TRENT','BEL','JIOFIN',
 ];
 
+/* rest of the Nifty 500 universe (best-effort list — unknown/renamed
+   symbols simply fail and are skipped, counted in the scan note) */
+const NIFTY500_EXTRA = [
+  '360ONE','3MINDIA','AARTIIND','AAVAS','ABB','ABBOTINDIA','ABCAPITAL','ABFRL',
+  'ABSLAMC','ACC','ACE','ADANIENSOL','ADANIGREEN','ADANIPOWER','AEGISLOG','AETHER',
+  'AFFLE','AIAENG','AJANTPHARM','AKZOINDIA','ALKEM','ALKYLAMINE','AMBER','AMBUJACEM',
+  'ANANDRATHI','ANGELONE','APARINDS','APLAPOLLO','APOLLOTYRE','APTUS','ARE&M',
+  'ASAHIINDIA','ASHOKLEY','ASTERDM','ASTRAL','ASTRAZEN','ATGL','ATUL','AUBANK',
+  'AUROPHARMA','AVANTIFEED','AWL','BAJAJHLDNG','BALKRISIND','BALRAMCHIN','BANDHANBNK',
+  'BANKBARODA','BANKINDIA','BASF','BATAINDIA','BAYERCROP','BDL','BEML','BERGEPAINT',
+  'BHARATFORG','BHEL','BIKAJI','BIOCON','BLUEDART','BLUESTARCO','BOSCHLTD','BRIGADE',
+  'BSE','BSOFT','CAMPUS','CAMS','CANBK','CANFINHOME','CAPLIPOINT','CARBORUNIV',
+  'CASTROLIND','CDSL','CEATLTD','CELLO','CENTRALBK','CENTURYPLY','CERA','CESC',
+  'CGPOWER','CHALET','CHAMBLFERT','CHENNPETRO','CHOLAFIN','CHOLAHLDNG','CIEINDIA',
+  'CLEAN','COCHINSHIP','COFORGE','COLPAL','CONCOR','CONCORDBIO','COROMANDEL',
+  'CRAFTSMAN','CREDITACC','CRISIL','CROMPTON','CUB','CUMMINSIND','CYIENT',
+  'DABUR','DALBHARAT','DATAPATTNS','DEEPAKFERT','DEEPAKNTR','DELHIVERY','DEVYANI',
+  'DIVISLAB','DIXON','DLF','DMART','DOMS','ECLERX','EIDPARRY','EIHOTEL','ELGIEQUIP',
+  'EMAMILTD','EMCURE','ENDURANCE','ENGINERSIN','ERIS','ESCORTS','ETERNAL','EXIDEIND',
+  'FACT','FEDERALBNK','FINCABLES','FINEORG','FINPIPE','FIVESTAR','FLUOROCHEM','FORTIS',
+  'FSL','GAIL','GESHIP','GILLETTE','GLAND','GLAXO','GLENMARK','GMDCLTD','GMRAIRPORT',
+  'GNFC','GODIGIT','GODFRYPHLP','GODREJCP','GODREJIND','GODREJPROP','GPIL','GRANULES',
+  'GRAPHITE','GRINDWELL','GSFC','GSPL','GUJGASLTD','HAL','HAPPSTMNDS','HAVELLS',
+  'HDFCAMC','HEG','HFCL','HINDCOPPER','HINDPETRO','HINDZINC','HONASA','HONAUT','HUDCO',
+  'ICICIGI','ICICIPRULI','IDBI','IDEA','IDFCFIRSTB','IEX','IFCI','IGL','IIFL',
+  'INDHOTEL','INDIAMART','INDIANB','INDIGO','INDUSTOWER','INOXWIND','INTELLECT','IOB',
+  'IOC','IPCALAB','IRB','IRCON','IRCTC','IRFC','ITI','JBCHEPHARM','JBMA','JINDALSAW',
+  'JINDALSTEL','JKCEMENT','JKTYRE','JMFINANCIL','JSL','JSWENERGY','JSWINFRA',
+  'JUBLFOOD','JUBLINGREA','JUBLPHARMA','JYOTHYLAB','JYOTICNC','KAJARIACER',
+  'KALYANKJIL','KANSAINER','KARURVYSYA','KAYNES','KEC','KEI','KFINTECH','KIMS',
+  'KNRCON','KPITTECH','KPRMILL','LALPATHLAB','LATENTVIEW','LAURUSLABS','LEMONTREE',
+  'LICHSGFIN','LICI','LINDEINDIA','LLOYDSME','LODHA','LTF','LTIM','LTTS','LUPIN',
+  'M&MFIN','MAHABANK','MAHSEAMLES','MANAPPURAM','MANKIND','MARICO','MAXHEALTH',
+  'MAZDOCK','MCX','MEDANTA','MEDPLUS','METROPOLIS','MFSL','MGL','MMTC','MOTHERSON',
+  'MOTILALOFS','MPHASIS','MRF','MRPL','MUTHOOTFIN','NAM-INDIA','NATCOPHARM',
+  'NATIONALUM','NAUKRI','NAVINFLUOR','NBCC','NCC','NH','NHPC','NLCINDIA','NMDC',
+  'NUVAMA','NYKAA','OBEROIRLTY','OFSS','OIL','OLAELEC','OLECTRA','PAGEIND','PATANJALI',
+  'PAYTM','PCBL','PEL','PERSISTENT','PETRONET','PFC','PHOENIXLTD','PIDILITIND',
+  'PIIND','PNB','PNBHOUSING','PNCINFRA','POLICYBZR','POLYCAB','POLYMED','POONAWALLA',
+  'PPLPHARMA','PRAJIND','PRESTIGE','PGHH','PVRINOX','QUESS','RADICO','RAILTEL',
+  'RAINBOW','RAMCOCEM','RATNAMANI','RBLBANK','RECLTD','REDINGTON','RITES','RKFORGE',
+  'RRKABEL','RVNL','SAIL','SAMMAANCAP','SANOFI','SAPPHIRE','SAREGAMA','SBFC','SBICARD',
+  'SCHAEFFLER','SCHNEIDER','SHREECEM','SHYAMMETL','SIEMENS','SJVN','SKFINDIA','SOBHA',
+  'SOLARINDS','SONACOMS','SONATSOFTW','SRF','STARHEALTH','SUMICHEM','SUNDARMFIN',
+  'SUNDRMFAST','SUNTV','SUPREMEIND','SUZLON','SWANENERGY','SWIGGY','SYNGENE','SYRMA',
+  'TANLA','TATACHEM','TATACOMM','TATAELXSI','TATAINVEST','TATAPOWER','TATATECH',
+  'TBOTEK','TECHNOE','TEJASNET','THERMAX','TIINDIA','TIMKEN','TITAGARH','TORNTPHARM',
+  'TORNTPOWER','TRIDENT','TRITURBINE','TRIVENI','TTML','TVSMOTOR','UBL','UCOBANK',
+  'UNIONBANK','UNITDSPR','UNOMINDA','UPL','USHAMART','UTIAMC','VBL','VEDL','VGUARD',
+  'VIJAYA','VIPIND','VOLTAS','VTL','WAAREEENER','WELCORP','WELSPUNLIV','WESTLIFE',
+  'WHIRLPOOL','YESBANK','ZEEL','ZENSARTECH','ZFCVINDIA','ZYDUSLIFE',
+];
+
 function evalBreakout(bars){
   const price = bars[bars.length-1].c;
   const hi = Math.max(...bars.map(b=>b.h)); // 6-month high — the real breakout barrier
@@ -1435,15 +1498,18 @@ async function runScan(){
   el('scanNote').style.display = 'none';
   el('scanBody').innerHTML = '';
 
+  const universe = el('scanScope').value === '500'
+    ? [...NIFTY50, ...NIFTY500_EXTRA]
+    : [...NIFTY50];
   const results = [];
-  const queue = [...NIFTY50];
+  const queue = [...universe];
   let done = 0, failed = 0;
   const tick = () => {
     done++;
-    el('scanFill').style.width = (done/NIFTY50.length*100)+'%';
-    el('scanTxt').textContent = `${done}/${NIFTY50.length}`;
+    el('scanFill').style.width = (done/universe.length*100)+'%';
+    el('scanTxt').textContent = `${done}/${universe.length}`;
   };
-  await Promise.all(Array.from({length:5}, async ()=>{
+  await Promise.all(Array.from({length: universe.length > 60 ? 8 : 5}, async ()=>{
     while(queue.length){
       const sym = queue.shift();
       try{
@@ -1472,7 +1538,7 @@ async function runScan(){
     el('scanTableWrap').style.display = 'block';
     el('scanNote').textContent = `${results.length} stock(s) mile · kisi bhi row par click karke pura analysis dekho · "breakout ke paas" = 6 mahine ke high se 2.5% ke andar${failed?` · ${failed} stocks ka data nahi mila`:''}`;
   }else{
-    el('scanNote').textContent = failed >= NIFTY50.length
+    el('scanNote').textContent = failed >= universe.length
       ? 'Data load nahi hua — thodi der baad phir SCAN karo.'
       : 'Abhi koi stock breakout ke paas nahi hai. Market ke hisaab se ye badalta rehta hai — baad mein phir scan karo.';
   }
