@@ -933,19 +933,34 @@ function buildPlan(bars, sr, piv, bo){
   const sup = sr.supports.map(s=>s.level);
   const breakout = bo ? bo.dir : 0;
 
+  /* swing rules: stop-loss tight (2-4% from entry), targets big (10-20%).
+     SL uses the nearest support/resistance when it falls inside the 2-4%
+     band, otherwise clamps to it. Targets default to +10% / +20% but snap
+     to a real level when one sits in that zone. */
+  const clampBuySL  = (entry, structural) =>
+    Math.min(Math.max(structural ?? entry*0.97, entry*0.96), entry*0.98);
+  const clampSellSL = (entry, structural) =>
+    Math.max(Math.min(structural ?? entry*1.03, entry*1.04), entry*1.02);
+  const buyTargets = entry => {
+    const snap = (def, lo, hi) => res.find(r => r >= entry*lo && r <= entry*hi) ?? def;
+    return [snap(entry*1.10, 1.08, 1.14), snap(entry*1.20, 1.16, 1.24)];
+  };
+  const sellTargets = entry => {
+    const snap = (def, hi, lo) => sup.find(s => s <= entry*hi && s >= entry*lo) ?? def;
+    return [snap(entry*0.90, 0.92, 0.86), snap(entry*0.80, 0.84, 0.76)];
+  };
+
   let buyTrigger, buyT1, buyT2, buySL, buyRetest = null;
   if(breakout===1){
     // breakout already done: entry = CMP or retest of broken level
     buyRetest  = bo.level;
     buyTrigger = price;
-    buyT1 = res[0] ?? price*1.04;
-    buyT2 = res[1] ?? Math.max(piv.R2, price*1.08);
-    buySL = bo.level*0.98;
+    [buyT1, buyT2] = buyTargets(bo.level);
+    buySL = clampBuySL(bo.level, bo.level*0.98);
   }else{
     buyTrigger = res[0] ?? piv.R1;
-    buyT1 = res[1] ?? Math.max(piv.R2, buyTrigger*1.02);
-    buyT2 = res[2] ?? Math.max(piv.R3, buyTrigger*1.045);
-    buySL = sup[0] ?? buyTrigger*0.97;
+    [buyT1, buyT2] = buyTargets(buyTrigger);
+    buySL = clampBuySL(buyTrigger, sup[0]);
   }
 
   let sellTrigger, sellT1, sellT2, sellSL, sellRetest = null;
@@ -953,14 +968,12 @@ function buildPlan(bars, sr, piv, bo){
     // breakdown already done: entry = CMP or pullback to broken level
     sellRetest  = bo.level;
     sellTrigger = price;
-    sellT1 = sup[0] ?? price*0.96;
-    sellT2 = sup[1] ?? Math.min(piv.S2, price*0.92);
-    sellSL = bo.level*1.02;
+    [sellT1, sellT2] = sellTargets(bo.level);
+    sellSL = clampSellSL(bo.level, bo.level*1.02);
   }else{
     sellTrigger = sup[0] ?? piv.S1;
-    sellT1 = sup[1] ?? Math.min(piv.S2, sellTrigger*0.98);
-    sellT2 = sup[2] ?? Math.min(piv.S3, sellTrigger*0.955);
-    sellSL = res[0] ?? sellTrigger*1.03;
+    [sellT1, sellT2] = sellTargets(sellTrigger);
+    sellSL = clampSellSL(sellTrigger, res[0]);
   }
 
   return {price, breakout, buyTrigger, buyT1, buyT2, buySL, buyRetest, sellTrigger, sellT1, sellT2, sellSL, sellRetest};
@@ -1328,7 +1341,8 @@ function render(meta, bars){
     el('planNote').innerHTML =
       `📌 <b>Simple rule:</b> Jab tak price <b>${fmtNum(plan.buyTrigger)}</b> ke upar close na kare, buying avoid karein — `+
       `aur <b>${fmtNum(plan.sellTrigger)}</b> ke niche close hone par hi selling/short ka socheiN. `+
-      `Beech mein (range ke andar) price choppy rehta hai. Entry ke baad stop-loss zaroor lagayein.`;
+      `Beech mein (range ke andar) price choppy rehta hai. Swing style: stop-loss tight hai (entry se 2–4%) aur targets bade (10–20%) — `+
+      `10 mein se 4 trade bhi chale to profit mein rahoge. Entry ke baad stop-loss zaroor lagayein.`;
   }
 
   // share text for WhatsApp / copy
