@@ -198,7 +198,55 @@ nav{
   border-radius:14px;
   padding:22px;
   margin-bottom:18px;
+  position:relative;
 }
+
+/* chart timeframe toggle */
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 10px;margin-bottom:12px}
+.tf-toggle{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.tf-toggle button{
+  background:var(--bg-2);border:none;color:var(--text-dim);
+  font-family:'Sora',sans-serif;font-weight:700;font-size:12px;
+  padding:8px 18px;cursor:pointer;
+}
+.tf-toggle button.active{background:linear-gradient(135deg,var(--gold),var(--gold-soft));color:#0a0e1a}
+
+/* ===== PREMIUM LOCK ===== */
+.lock-overlay{
+  position:absolute;inset:0;z-index:6;border-radius:14px;
+  background:rgba(5,7,13,0.6);
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  display:flex;align-items:center;justify-content:center;
+  padding:22px;
+}
+.lock-box{max-width:420px;text-align:center}
+.lock-ico{font-size:34px}
+.lock-title{
+  font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;
+  color:var(--gold);margin:6px 0 8px;
+}
+.lock-box p{font-size:13.5px;color:var(--text-dim);margin-bottom:14px;line-height:1.6}
+.lock-box p b{color:var(--green);font-size:15px}
+.lock-row{display:flex;gap:8px;justify-content:center}
+.lock-input{
+  flex:1;max-width:210px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:9px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;
+  padding:11px 14px;outline:none;text-transform:uppercase;
+}
+.lock-input:focus{border-color:var(--gold)}
+.lock-btn{
+  background:linear-gradient(135deg,var(--gold) 0%,var(--gold-soft) 100%);
+  color:#0a0e1a;border:none;border-radius:9px;padding:0 20px;
+  font-family:'Sora',sans-serif;font-weight:800;font-size:13px;cursor:pointer;
+}
+.lock-err{color:var(--red);font-size:12px;min-height:18px;margin-top:8px}
+.lock-buy{
+  display:inline-block;margin-top:6px;color:#25D366;font-size:13px;
+  font-weight:700;text-decoration:none;
+}
+.lock-buy:hover{text-decoration:underline}
+.card.locked{min-height:360px}
 .card h3{
   font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
   color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;
@@ -399,7 +447,20 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
   </div>
 
   <!-- BREAKOUT SCANNER -->
-  <div class="card scanner-card">
+  <div class="card scanner-card locked">
+      <div class="lock-overlay">
+        <div class="lock-box">
+          <div class="lock-ico">🔒</div>
+          <div class="lock-title">PREMIUM — MEMBERS ONLY</div>
+          <p>Ye feature sirf members ke liye hai.<br><b>₹300 — Lifetime Access</b></p>
+          <div class="lock-row">
+            <input class="lock-input" placeholder="ACCESS CODE" maxlength="24">
+            <button class="lock-btn">UNLOCK</button>
+          </div>
+          <div class="lock-err"></div>
+          <a class="lock-buy" target="_blank" rel="noopener" href="https://wa.me/919699781072?text=Mujhe%20Stock%20Analysis%20app%20ka%20access%20code%20chahiye%20(%E2%82%B9300%20lifetime)">💬 Code lene ke liye WhatsApp karo →</a>
+        </div>
+      </div>
     <h3><span class="ico">🚀</span> BREAKOUT SCANNER <span class="sub">— Nifty 50 stocks mein se kaun breakout ke paas hai, ek click mein dekho</span></h3>
     <div class="scan-head">
       <select id="scanType" class="scan-scope">
@@ -467,7 +528,13 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
 
     <!-- CHART -->
     <div class="card chart-card">
-      <h3 style="padding:0 10px"><span class="ico">📈</span> PRICE CHART <span style="font-family:'Sora';font-size:11px;color:var(--text-dim);letter-spacing:0">— daily candles, last 6 months</span></h3>
+      <div class="chart-head">
+        <h3 style="padding:0;margin:0"><span class="ico">📈</span> PRICE CHART <span id="chartMeta" style="font-family:'Sora';font-size:11px;color:var(--text-dim);letter-spacing:0">— daily candles, last 6 months</span></h3>
+        <div class="tf-toggle">
+          <button data-tf="1d" class="active">1D</button>
+          <button data-tf="1wk">1W</button>
+        </div>
+      </div>
       <div class="chart-legend">
         <span><span class="lg-swatch" style="background:var(--sma20)"></span> SMA 20</span>
         <span><span class="lg-swatch" style="background:var(--sma50)"></span> SMA 50</span>
@@ -516,7 +583,20 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
     </div>
 
     <!-- TRADE PLAN -->
-    <div class="card">
+    <div class="card locked">
+      <div class="lock-overlay">
+        <div class="lock-box">
+          <div class="lock-ico">🔒</div>
+          <div class="lock-title">PREMIUM — MEMBERS ONLY</div>
+          <p>Ye feature sirf members ke liye hai.<br><b>₹300 — Lifetime Access</b></p>
+          <div class="lock-row">
+            <input class="lock-input" placeholder="ACCESS CODE" maxlength="24">
+            <button class="lock-btn">UNLOCK</button>
+          </div>
+          <div class="lock-err"></div>
+          <a class="lock-buy" target="_blank" rel="noopener" href="https://wa.me/919699781072?text=Mujhe%20Stock%20Analysis%20app%20ka%20access%20code%20chahiye%20(%E2%82%B9300%20lifetime)">💬 Code lene ke liye WhatsApp karo →</a>
+        </div>
+      </div>
       <h3><span class="ico">🗺️</span> TRADING PLAN — BUY / SELL LEVELS</h3>
       <div class="plan-grid">
         <div class="plan-box plan-buy">
@@ -608,8 +688,8 @@ async function searchSymbols(q){
   return quotes;
 }
 
-async function fetchChart(symbol, range='1y'){
-  const j = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d&includePrePost=false`);
+async function fetchChart(symbol, range='1y', interval='1d', minBars=60){
+  const j = await fetchYahoo(`/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`);
   const r = j.chart && j.chart.result && j.chart.result[0];
   if(!r || !r.timestamp) throw new Error('No data for this symbol');
   const q = r.indicators.quote[0];
@@ -618,7 +698,7 @@ async function fetchChart(symbol, range='1y'){
     if(q.close[i]==null || q.open[i]==null) continue;
     bars.push({t:r.timestamp[i]*1000, o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0});
   }
-  if(bars.length < 60) throw new Error('Not enough history to analyse');
+  if(bars.length < minBars) throw new Error('Not enough history to analyse');
   return {meta:r.meta, bars};
 }
 
@@ -1045,14 +1125,16 @@ function drawChart(allBars, trend, sr){
   }
   // x labels — month starts
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  let lastMonth = -1;
+  let lastMonth = -1, lastLabelX = -1e9;
   for(let i=0;i<N;i++){
     const d = new Date(bars[i].t);
     if(d.getMonth()!==lastMonth){
       lastMonth = d.getMonth();
-      if(i>2){
+      if(i>2 && x(i) - lastLabelX >= 56){
+        lastLabelX = x(i);
+        const label = d.getMonth()===0 ? String(d.getFullYear()) : d.toLocaleString('en',{month:'short'});
         ctx.fillStyle='rgba(138,150,173,0.9)';
-        ctx.fillText(d.toLocaleString('en',{month:'short'}), x(i), H-8);
+        ctx.fillText(label, x(i), H-8);
         ctx.strokeStyle='rgba(230,237,247,0.04)';
         ctx.beginPath(); ctx.moveTo(x(i), padT); ctx.lineTo(x(i), padT+ph); ctx.stroke();
       }
@@ -1156,7 +1238,7 @@ function drawChart(allBars, trend, sr){
 /* =====================================================================
    RENDER RESULTS
    ===================================================================== */
-let currentBars=null, currentTrend=null, currentSR=null, shareText='', currentPlan=null, currentATR=null;
+let currentBars=null, currentTrend=null, currentSR=null, shareText='', shareTextLocked='', currentPlan=null, currentATR=null;
 
 function updateCalc(){
   if(!currentPlan) return;
@@ -1211,6 +1293,10 @@ function render(meta, bars){
 
   currentBars = bars; currentTrend = trend; currentSR = sr;
   currentPlan = plan; currentATR = atr(bars);
+  currentSymbol = meta.symbol;
+  dailyView = {bars, trend, sr};
+  document.querySelectorAll('.tf-toggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
+  el('chartMeta').textContent = '— daily candles, last 6 months';
 
   // verdict
   const vb = el('vBadge');
@@ -1364,6 +1450,9 @@ function render(meta, bars){
     ``,
     `— Future Traders ⚡ t.me/Future_Traders_In`,
   ].join('\n');
+  shareTextLocked = shareText
+    .replace(buyLine, '🔒 Buy/Sell levels — members only (₹300 lifetime)')
+    .replace(sellLine+'\n', '');
 
   updateCalc();
 
@@ -1505,14 +1594,16 @@ try{
 }catch(_){}
 
 el('waShare').addEventListener('click', ()=>{
-  if(shareText) window.open('https://wa.me/?text='+encodeURIComponent(shareText), '_blank', 'noopener');
+  const t = hasAccess ? shareText : shareTextLocked;
+  if(t) window.open('https://wa.me/?text='+encodeURIComponent(t), '_blank', 'noopener');
 });
 el('copyLink').addEventListener('click', async ()=>{
-  if(!shareText) return;
-  try{ await navigator.clipboard.writeText(shareText); }
+  const t = hasAccess ? shareText : shareTextLocked;
+  if(!t) return;
+  try{ await navigator.clipboard.writeText(t); }
   catch(_){
     const ta = document.createElement('textarea');
-    ta.value = shareText; document.body.appendChild(ta);
+    ta.value = hasAccess ? shareText : shareTextLocked; document.body.appendChild(ta);
     ta.select(); document.execCommand('copy'); ta.remove();
   }
   const b = el('copyLink'), old = b.textContent;
@@ -1703,9 +1794,94 @@ el('scanBody').addEventListener('click', e=>{
   analyze(row.dataset.s, true);
 });
 
+/* =====================================================================
+   CHART TIMEFRAME TOGGLE — 1D (daily, 6mo view) / 1W (weekly, multi-year
+   view so bade highs/resistance zones dikhein)
+   ===================================================================== */
+let currentSymbol = null, dailyView = null;
+const weeklyCache = {};
+
+function setChartView(bars, trendLike, srLike){
+  currentBars = bars; currentTrend = trendLike; currentSR = srLike;
+  drawChart(bars, trendLike, srLike);
+}
+
+async function switchTF(tf){
+  if(!dailyView) return;
+  document.querySelectorAll('.tf-toggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf===tf));
+  if(tf === '1d'){
+    setChartView(dailyView.bars, dailyView.trend, dailyView.sr);
+    el('chartMeta').textContent = '— daily candles, last 6 months';
+    return;
+  }
+  try{
+    let wk = weeklyCache[currentSymbol];
+    if(!wk){
+      el('chartMeta').textContent = '— weekly data load ho raha hai…';
+      const d = await fetchChart(currentSymbol, '5y', '1wk', 30);
+      const closes = d.bars.map(b=>b.c);
+      wk = { bars: d.bars, trend: {s20: smaSeries(closes,20), s50: smaSeries(closes,50)}, sr: supportResistance(d.bars) };
+      weeklyCache[currentSymbol] = wk;
+    }
+    setChartView(wk.bars, wk.trend, wk.sr);
+    el('chartMeta').textContent = '— weekly candles (bade highs/lows aur multi-year levels)';
+  }catch(_){
+    el('chartMeta').textContent = '— weekly data nahi mila, daily hi dikha rahe hain';
+    document.querySelectorAll('.tf-toggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
+  }
+}
+document.querySelectorAll('.tf-toggle button').forEach(b=>{
+  b.addEventListener('click', ()=> switchTF(b.dataset.tf));
+});
+
 /* deep-link support: analysis.html?s=RELIANCE.NS */
 const params = new URLSearchParams(location.search);
 if(params.get('s')) { el('q').value = params.get('s'); analyze(params.get('s'), true); }
+
+/* =====================================================================
+   PREMIUM LOCK — access code (SHA-256 hashed; the code itself is not
+   in the source). Unlock is remembered on this device via localStorage.
+   ===================================================================== */
+const ACCESS_HASHES = [
+  '45116cfa3b98c08d417d732fc63b14691f00d2a981f2a76b7c329c6238f77f58',
+];
+let hasAccess = false;
+
+async function sha256hex(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function codeValid(code){
+  if(!code || !crypto.subtle) return false;
+  try{ return ACCESS_HASHES.includes(await sha256hex(code.trim().toUpperCase())); }
+  catch(_){ return false; }
+}
+function unlockUI(){
+  hasAccess = true;
+  document.querySelectorAll('.lock-overlay').forEach(o=>o.remove());
+  document.querySelectorAll('.card.locked').forEach(c=>c.classList.remove('locked'));
+}
+document.querySelectorAll('.lock-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const box = btn.closest('.lock-box');
+    const code = box.querySelector('.lock-input').value;
+    if(await codeValid(code)){
+      try{ localStorage.setItem('ft_access', code.trim().toUpperCase()); }catch(_){}
+      unlockUI();
+    }else{
+      box.querySelector('.lock-err').textContent = 'Galat code — dobara check karo ya WhatsApp par contact karo.';
+    }
+  });
+});
+document.querySelectorAll('.lock-input').forEach(inp=>{
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') inp.closest('.lock-box').querySelector('.lock-btn').click(); });
+});
+(async ()=>{
+  try{
+    const saved = localStorage.getItem('ft_access');
+    if(saved && await codeValid(saved)) unlockUI();
+  }catch(_){}
+})();
 
 /* =====================================================================
    PWA — service worker + install button
