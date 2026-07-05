@@ -371,6 +371,25 @@ nav{
   border-radius:10px;padding:12px 16px;
 }
 
+/* recommendation */
+.reco-badge{
+  display:inline-block;
+  font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;
+  padding:10px 24px;border-radius:12px;border:1px solid;line-height:1.2;
+  margin-bottom:14px;
+}
+.reco-buy{color:var(--green);border-color:rgba(0,214,143,0.5);background:rgba(0,214,143,0.08)}
+.reco-avoid{color:var(--red);border-color:rgba(255,59,92,0.5);background:rgba(255,59,92,0.08)}
+.reco-wait{color:var(--gold);border-color:rgba(245,184,0,0.5);background:rgba(245,184,0,0.08)}
+.reco-lines .reco-line{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:9px 0;border-bottom:1px solid rgba(30,42,63,0.5);
+  font-size:14px;line-height:1.65;
+}
+.reco-lines .reco-line:last-child{border-bottom:none}
+.reco-lines .reco-line .ri{flex-shrink:0}
+.reco-lines b{color:var(--gold-soft)}
+
 /* share + telegram */
 .share-strip{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:4px 0 18px}
 .share-btn{
@@ -597,29 +616,9 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
           <a class="lock-buy" target="_blank" rel="noopener" href="https://wa.me/919699781072?text=Mujhe%20Stock%20Analysis%20app%20ka%20access%20code%20chahiye%20(%E2%82%B9300%20lifetime)">💬 Code lene ke liye WhatsApp karo →</a>
         </div>
       </div>
-      <h3><span class="ico">🗺️</span> TRADING PLAN — BUY / SELL LEVELS</h3>
-      <div class="plan-grid">
-        <div class="plan-box plan-buy">
-          <div class="plan-label up" id="buyLabel">▲ Buying iske upar (Buy Above)</div>
-          <div class="plan-level up" id="buyLevel">—</div>
-          <div class="plan-rows" id="buyRows"></div>
-        </div>
-        <div class="plan-box plan-sell">
-          <div class="plan-label down" id="sellLabel">▼ Selling iske niche (Sell Below)</div>
-          <div class="plan-level down" id="sellLevel">—</div>
-          <div class="plan-rows" id="sellRows"></div>
-        </div>
-      </div>
-      <p class="plan-note" id="planNote"></p>
-
-      <div class="pos-calc">
-        <div class="pc-title">🧮 Position Size Calculator <span>— kitne shares kharidne chahiye (risk management)</span></div>
-        <div class="pc-inputs">
-          <label>Capital (₹) <input id="pcCap" type="number" min="0" step="1000" value="100000"></label>
-          <label>Risk per trade (%) <input id="pcRisk" type="number" min="0.1" max="10" step="0.5" value="1"></label>
-        </div>
-        <div class="pc-out" id="pcOut">—</div>
-      </div>
+      <h3><span class="ico">💡</span> RECOMMENDATION — KYA KAREIN?</h3>
+      <div class="reco-badge" id="recoBadge">—</div>
+      <div class="reco-lines" id="recoLines"></div>
     </div>
 
     <!-- SHARE -->
@@ -1007,61 +1006,53 @@ function computeVerdict(bars, trend, patterns){
   return {score, norm, label, cls, votes};
 }
 
-function buildPlan(bars, sr, piv, bo){
+function buildReco(bars, trend, sr, bo){
   const price = bars[bars.length-1].c;
-  const res = sr.resistances.map(r=>r.level);
-  const sup = sr.supports.map(s=>s.level);
-  const breakout = bo ? bo.dir : 0;
-
-  /* swing rules: stop-loss tight (2-4% from entry), targets big (10-20%).
-     SL uses the nearest support/resistance when it falls inside the 2-4%
-     band, otherwise clamps to it. Targets default to +10% / +20% but snap
-     to a real level when one sits in that zone. */
-  const clampBuySL  = (entry, structural) =>
-    Math.min(Math.max(structural ?? entry*0.97, entry*0.96), entry*0.98);
-  const clampSellSL = (entry, structural) =>
-    Math.max(Math.min(structural ?? entry*1.03, entry*1.04), entry*1.02);
-  const buyTargets = entry => {
-    const snap = (def, lo, hi) => res.find(r => r >= entry*lo && r <= entry*hi) ?? def;
-    return [snap(entry*1.10, 1.08, 1.14), snap(entry*1.20, 1.16, 1.24)];
-  };
-  const sellTargets = entry => {
-    const snap = (def, hi, lo) => sup.find(s => s <= entry*hi && s >= entry*lo) ?? def;
-    return [snap(entry*0.90, 0.92, 0.86), snap(entry*0.80, 0.84, 0.76)];
-  };
-
-  /* triggers respect the RECENT HIGH/LOW (last month), not the nearest
-     minor swing — no more premature entries below the visible high */
   const hi20 = Math.max(...bars.slice(-20).map(b=>b.h));
   const lo20 = Math.min(...bars.slice(-20).map(b=>b.l));
+  // swing-based levels: nearest swing-high cluster above, swing-low below
+  const upLvl = sr.resistances[0] ? sr.resistances[0].level : hi20;
+  const dnLvl = sr.supports[0] ? sr.supports[0].level : lo20;
+  const daily = trend.dir, weekly = trend.wDir, r = trend.rsi;
+  const lines = [];
+  let label, cls;
 
-  let buyTrigger, buyT1, buyT2, buySL, buyRetest = null;
-  if(breakout===1){
-    // breakout already done: entry = CMP or retest of broken level
-    buyRetest  = bo.level;
-    buyTrigger = price;
-    [buyT1, buyT2] = buyTargets(bo.level);
-    buySL = clampBuySL(bo.level, bo.level*0.98);
+  if(bo && bo.dir===-1){
+    label = '❌ AVOID KARO'; cls = 'reco-avoid';
+    lines.push(['💥', `<b>${fmtNum(bo.level)}</b> ka support abhi-abhi toota hai — aur girawat aa sakti hai. Ye stock abhi <b>avoid</b> karo.`]);
+    lines.push(['👀', `Dobara tabhi dekho jab price wapas <b>${fmtNum(bo.level)}</b> ke upar close kare.`]);
+  }else if(daily==='DOWNTREND' && weekly==='DOWN'){
+    label = '❌ AVOID KARO'; cls = 'reco-avoid';
+    lines.push(['📉', `Daily aur weekly <b>dono downtrend</b> mein hain — buying ka sawal hi nahi. Ye stock abhi avoid karo.`]);
+    lines.push(['👀', `Trend badalne ka pehla signal: <b>${fmtNum(upLvl)}</b> (swing high) ke upar close. Tab tak door raho.`]);
+    if(r!=null && r<30) lines.push(['⚠️', `RSI oversold (${r.toFixed(0)}) hai — bounce aa sakta hai, par girta hua chaku pakadna nahi. Trend ke khilaf mat jao.`]);
+  }else if(daily==='DOWNTREND'){
+    label = '❌ ABHI AVOID'; cls = 'reco-avoid';
+    lines.push(['📉', `Daily <b>downtrend</b> mein hai — abhi buying ke liye nahi hai.`]);
+    lines.push(['👀', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to trend sudhrega — tab dobara analysis karo.`]);
+  }else if(bo && bo.dir===1){
+    label = '🚀 BREAKOUT — BUYING ZONE'; cls = 'reco-buy';
+    lines.push(['✅', `<b>${fmtNum(bo.level)}</b> ka resistance tod chuka hai — stock strong hai, buying aa rahi hai.`]);
+    lines.push(['🎯', `<b>${fmtNum(bo.level)}</b> ke paas dip/retest aaye to wahan buying ka best mauka hota hai.`]);
+    lines.push(['⚠️', `Agar wapas <b>${fmtNum(bo.level*0.98)}</b> ke niche close kare to breakout fail — nikal jao.`]);
+  }else if(daily==='UPTREND' && weekly==='UP'){
+    label = '✅ BUYING KE LIYE ACCHA'; cls = 'reco-buy';
+    lines.push(['📈', `Stock <b>uptrend</b> mein hai — daily aur weekly dono UP. Buying ke liye accha stock hai.`]);
+    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to nayi buying aa sakti hai.`]);
+    lines.push(['🛡️', `Jab tak <b>${fmtNum(dnLvl)}</b> (swing low) ke upar hai, trend strong hai. Iske niche close = weakness.`]);
+    if(r!=null && r>75) lines.push(['⚠️', `RSI overbought (${r.toFixed(0)}) — thoda ruk kar ya dip par socho, bhaag mat lo.`]);
+  }else if(daily==='UPTREND'){
+    label = '🟡 THIK HAI — DHYAN SE'; cls = 'reco-wait';
+    lines.push(['📈', `Daily uptrend hai par weekly abhi ${weekly==='DOWN'?'down':'confirm nahi'} — poora bharosa nahi.`]);
+    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> ke upar close ho to buying aa sakti hai — chhote size mein hi socho.`]);
+    lines.push(['🛡️', `<b>${fmtNum(dnLvl)}</b> ke niche close ho to avoid.`]);
   }else{
-    buyTrigger = hi20;
-    [buyT1, buyT2] = buyTargets(buyTrigger);
-    buySL = clampBuySL(buyTrigger, sup[0]);
+    label = '⏸️ WAIT KARO'; cls = 'reco-wait';
+    lines.push(['📦', `Abhi <b>sideways/range</b> mein hai — na clear buying, na selling. Range ke andar trade choppy hota hai.`]);
+    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to buying aa sakti hai.`]);
+    lines.push(['⚠️', `<b>${fmtNum(dnLvl)}</b> (swing low) ke niche close ho to weakness — avoid.`]);
   }
-
-  let sellTrigger, sellT1, sellT2, sellSL, sellRetest = null;
-  if(breakout===-1){
-    // breakdown already done: entry = CMP or pullback to broken level
-    sellRetest  = bo.level;
-    sellTrigger = price;
-    [sellT1, sellT2] = sellTargets(bo.level);
-    sellSL = clampSellSL(bo.level, bo.level*1.02);
-  }else{
-    sellTrigger = lo20;
-    [sellT1, sellT2] = sellTargets(sellTrigger);
-    sellSL = clampSellSL(sellTrigger, res[0]);
-  }
-
-  return {price, breakout, buyTrigger, buyT1, buyT2, buySL, buyRetest, sellTrigger, sellT1, sellT2, sellSL, sellRetest};
+  return {label, cls, lines, upLvl, dnLvl};
 }
 
 /* =====================================================================
@@ -1243,30 +1234,8 @@ function drawChart(allBars, trend, sr){
 /* =====================================================================
    RENDER RESULTS
    ===================================================================== */
-let currentBars=null, currentTrend=null, currentSR=null, shareText='', shareTextLocked='', currentPlan=null, currentATR=null;
+let currentBars=null, currentTrend=null, currentSR=null, shareText='', shareTextLocked='';
 
-function updateCalc(){
-  if(!currentPlan) return;
-  const cap = +el('pcCap').value || 0;
-  const riskPct = +el('pcRisk').value || 0;
-  try{ localStorage.setItem('ft_cap', cap); localStorage.setItem('ft_risk', riskPct); }catch(_){}
-  const entry = currentPlan.breakout===1 ? currentPlan.buyRetest : currentPlan.buyTrigger;
-  const sl = currentPlan.buySL;
-  const per = entry - sl;
-  if(per<=0 || !cap || !riskPct){ el('pcOut').textContent='—'; return; }
-  const riskAmt = cap*riskPct/100;
-  let qty = Math.floor(riskAmt/per);
-  let capNote = '';
-  if(qty*entry > cap){ qty = Math.floor(cap/entry); capNote = ' (capital limit ke hisaab se)'; }
-  if(qty < 1){
-    el('pcOut').innerHTML = `Is setup mein 1 share ka risk hi <b>${fmtNum(per)}</b> hai jo aapke risk budget <b>${fmtNum(riskAmt)}</b> se zyada hai — ya to capital badhao, ya ye trade skip karo.`;
-    return;
-  }
-  const atrTxt = currentATR ? ` · SL distance ≈ <b>${(per/currentATR).toFixed(1)}× ATR</b>` : '';
-  el('pcOut').innerHTML =
-    `Buy <b>${qty} shares</b>${capNote} @ entry <b>${fmtNum(entry)}</b> · Investment <b>${fmtNum(qty*entry)}</b> · `+
-    `SL <b>${fmtNum(sl)}</b> hit hua to max loss <b>${fmtNum(qty*per)}</b> (capital ka ${riskPct}%)${atrTxt}`;
-}
 
 function render(meta, bars){
   CUR = meta.currency==='INR' ? '₹' : meta.currency==='USD' ? '$' : (meta.currency? meta.currency+' ' : '');
@@ -1294,10 +1263,9 @@ function render(meta, bars){
   const bo = detectBreakout(bars, sr);
   const patterns = detectPatterns(bars, sr, trend, bo);
   const verdict = computeVerdict(bars, trend, patterns);
-  const plan = buildPlan(bars, sr, piv, bo);
+  const reco = buildReco(bars, trend, sr, bo);
 
   currentBars = bars; currentTrend = trend; currentSR = sr;
-  currentPlan = plan; currentATR = atr(bars);
   currentSymbol = meta.symbol;
   dailyView = {bars, trend, sr};
   document.querySelectorAll('.tf-toggle button').forEach(b=>b.classList.toggle('active', b.dataset.tf==='1d'));
@@ -1364,86 +1332,17 @@ function render(meta, bars){
     ['S1',piv.S1,'tag-sup'],['S2',piv.S2,'tag-sup'],['S3',piv.S3,'tag-sup'],
   ].map(([n,v,c])=>`<tr><td><span class="tag ${c}">${n}</span></td><td>${fmtNum(v)}</td></tr>`).join('');
 
-  // trade plan
-  const rowsHTML = rows => rows.map(([a,b])=>`<div><span>${a}</span><span>${b}</span></div>`).join('');
-  if(plan.breakout===1){
-    el('buyLabel').textContent = '▲ Breakout ho chuka — Buy Zone';
-    el('buyLevel').textContent = `${fmtNum(plan.buyRetest)} – ${fmtNum(plan.price)}`;
-    const rr = (plan.buyT1-plan.buyRetest)/(plan.buyRetest-plan.buySL);
-    el('buyRows').innerHTML = rowsHTML([
-      ['Broken resistance (ab support)', fmtNum(plan.buyRetest)],
-      ['Entry (aggressive)', 'CMP '+fmtNum(plan.price)],
-      ['Entry (safe — retest par)', fmtNum(plan.buyRetest)],
-      ['Target 1', fmtNum(plan.buyT1)],
-      ['Target 2', fmtNum(plan.buyT2)],
-      ['Stop Loss', fmtNum(plan.buySL)],
-      ['Risk : Reward (retest entry)', isFinite(rr)&&rr>0 ? '1 : '+rr.toFixed(1) : '—'],
-    ]);
-  }else{
-    el('buyLabel').textContent = '▲ Buying iske upar (Buy Above)';
-    el('buyLevel').textContent = fmtNum(plan.buyTrigger);
-    const buyRR = (plan.buyT1-plan.buyTrigger)/(plan.buyTrigger-plan.buySL);
-    el('buyRows').innerHTML = rowsHTML([
-      ['1-month high — iske upar close par buy', fmtNum(plan.buyTrigger)],
-      ['Target 1', fmtNum(plan.buyT1)],
-      ['Target 2', fmtNum(plan.buyT2)],
-      ['Stop Loss', fmtNum(plan.buySL)],
-      ['Risk : Reward (T1)', isFinite(buyRR)&&buyRR>0 ? '1 : '+buyRR.toFixed(1) : '—'],
-    ]);
-  }
-
-  if(plan.breakout===-1){
-    el('sellLabel').textContent = '▼ Breakdown ho chuka — Sell Zone';
-    el('sellLevel').textContent = `${fmtNum(plan.price)} – ${fmtNum(plan.sellRetest)}`;
-    const rr = (plan.sellRetest-plan.sellT1)/(plan.sellSL-plan.sellRetest);
-    el('sellRows').innerHTML = rowsHTML([
-      ['Broken support (ab resistance)', fmtNum(plan.sellRetest)],
-      ['Entry (aggressive)', 'CMP '+fmtNum(plan.price)],
-      ['Entry (safe — pullback par)', fmtNum(plan.sellRetest)],
-      ['Target 1', fmtNum(plan.sellT1)],
-      ['Target 2', fmtNum(plan.sellT2)],
-      ['Stop Loss', fmtNum(plan.sellSL)],
-      ['Risk : Reward (pullback entry)', isFinite(rr)&&rr>0 ? '1 : '+rr.toFixed(1) : '—'],
-    ]);
-  }else{
-    el('sellLabel').textContent = '▼ Selling iske niche (Sell Below)';
-    el('sellLevel').textContent = fmtNum(plan.sellTrigger);
-    const sellRR = (plan.sellTrigger-plan.sellT1)/(plan.sellSL-plan.sellTrigger);
-    el('sellRows').innerHTML = rowsHTML([
-      ['1-month low — iske niche close par sell', fmtNum(plan.sellTrigger)],
-      ['Target 1', fmtNum(plan.sellT1)],
-      ['Target 2', fmtNum(plan.sellT2)],
-      ['Stop Loss', fmtNum(plan.sellSL)],
-      ['Risk : Reward (T1)', isFinite(sellRR)&&sellRR>0 ? '1 : '+sellRR.toFixed(1) : '—'],
-    ]);
-  }
-
-  if(plan.breakout===1){
-    el('planNote').innerHTML =
-      `📌 <b>Breakout already ho chuka hai</b> — <b>${fmtNum(plan.buyRetest)}</b> ka resistance toot gaya hai, isliye ab "buy above" ka wait mat karo. `+
-      `Do options: CMP <b>${fmtNum(plan.price)}</b> par strict stop-loss ke saath entry, ya (better) price ke <b>${fmtNum(plan.buyRetest)}</b> ke paas retest ka wait karo — wahan risk:reward best milta hai. `+
-      `Agar price <b>${fmtNum(plan.buySL)}</b> ke niche close kare to breakout fail — exit kar dena.`;
-  }else if(plan.breakout===-1){
-    el('planNote').innerHTML =
-      `📌 <b>Breakdown already ho chuka hai</b> — <b>${fmtNum(plan.sellRetest)}</b> ka support toot gaya hai. `+
-      `Short CMP par strict stop-loss ke saath, ya (better) <b>${fmtNum(plan.sellRetest)}</b> tak pullback ka wait karo. `+
-      `Agar price <b>${fmtNum(plan.sellSL)}</b> ke upar close kare to breakdown fail — exit kar dena.`;
-  }else{
-    el('planNote').innerHTML =
-      `📌 <b>Simple rule:</b> <b>${fmtNum(plan.buyTrigger)}</b> pichle 1 mahine ka HIGH hai — jab tak price iske upar close na kare, buying avoid karein — `+
-      `aur <b>${fmtNum(plan.sellTrigger)}</b> (1 mahine ka LOW) ke niche close hone par hi selling/short ka socheiN. `+
-      `Beech mein (range ke andar) price choppy rehta hai. Swing style: stop-loss tight hai (entry se 2–4%) aur targets bade (10–20%) — `+
-      `10 mein se 4 trade bhi chale to profit mein rahoge. Entry ke baad stop-loss zaroor lagayein.`;
-  }
+  // recommendation
+  const rb = el('recoBadge');
+  rb.textContent = reco.label;
+  rb.className = 'reco-badge ' + reco.cls;
+  el('recoLines').innerHTML = reco.lines.map(([ico, txt]) =>
+    `<div class="reco-line"><span class="ri">${ico}</span><span>${txt}</span></div>`).join('');
 
   // share text for WhatsApp / copy
   const deepLink = `${location.origin}${location.pathname}?s=${encodeURIComponent(meta.symbol)}`;
-  const buyLine = plan.breakout===1
-    ? `▲ Buy zone: ${fmtNum(plan.buyRetest)} – ${fmtNum(plan.price)} (breakout ho chuka)`
-    : `▲ Buy above: ${fmtNum(plan.buyTrigger)}`;
-  const sellLine = plan.breakout===-1
-    ? `▼ Sell zone: ${fmtNum(plan.price)} – ${fmtNum(plan.sellRetest)} (breakdown ho chuka)`
-    : `▼ Sell below: ${fmtNum(plan.sellTrigger)}`;
+  const buyLine = `💡 ${reco.label.replace(/^[^A-Za-z0-9\u0900-\u097F]+\s*/, '')}`;
+  const sellLine = `👀 Levels: ${fmtNum(reco.upLvl)} ke upar buying · ${fmtNum(reco.dnLvl)} ke niche weakness`;
   shareText = [
     `📊 ${el('rName').textContent} — ${fmtNum(price)} (${chg>=0?'▲':'▼'} ${chgPct>=0?'+':''}${chgPct.toFixed(2)}%)`,
     `⚡ Verdict: ${verdict.label}`,
@@ -1456,10 +1355,8 @@ function render(meta, bars){
     `— Future Traders ⚡ t.me/Future_Traders_In`,
   ].join('\n');
   shareTextLocked = shareText
-    .replace(buyLine, '🔒 Buy/Sell levels — members only (₹300 lifetime)')
+    .replace(buyLine, '🔒 Recommendation — members only (₹300 lifetime)')
     .replace(sellLine+'\n', '');
-
-  updateCalc();
 
   // show + draw
   el('results').classList.add('show');
@@ -1590,13 +1487,6 @@ el('chips').addEventListener('click', e=>{
   el('q').value = chip.textContent;
   analyze(chip.dataset.s, true);
 });
-
-el('pcCap').addEventListener('input', updateCalc);
-el('pcRisk').addEventListener('input', updateCalc);
-try{
-  if(localStorage.getItem('ft_cap'))  el('pcCap').value  = localStorage.getItem('ft_cap');
-  if(localStorage.getItem('ft_risk')) el('pcRisk').value = localStorage.getItem('ft_risk');
-}catch(_){}
 
 el('waShare').addEventListener('click', ()=>{
   const t = hasAccess ? shareText : shareTextLocked;
