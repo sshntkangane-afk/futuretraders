@@ -1030,6 +1030,11 @@ function buildPlan(bars, sr, piv, bo){
     return [snap(entry*0.90, 0.92, 0.86), snap(entry*0.80, 0.84, 0.76)];
   };
 
+  /* triggers respect the RECENT HIGH/LOW (last month), not the nearest
+     minor swing — no more premature entries below the visible high */
+  const hi20 = Math.max(...bars.slice(-20).map(b=>b.h));
+  const lo20 = Math.min(...bars.slice(-20).map(b=>b.l));
+
   let buyTrigger, buyT1, buyT2, buySL, buyRetest = null;
   if(breakout===1){
     // breakout already done: entry = CMP or retest of broken level
@@ -1038,7 +1043,7 @@ function buildPlan(bars, sr, piv, bo){
     [buyT1, buyT2] = buyTargets(bo.level);
     buySL = clampBuySL(bo.level, bo.level*0.98);
   }else{
-    buyTrigger = res[0] ?? piv.R1;
+    buyTrigger = hi20;
     [buyT1, buyT2] = buyTargets(buyTrigger);
     buySL = clampBuySL(buyTrigger, sup[0]);
   }
@@ -1051,7 +1056,7 @@ function buildPlan(bars, sr, piv, bo){
     [sellT1, sellT2] = sellTargets(bo.level);
     sellSL = clampSellSL(bo.level, bo.level*1.02);
   }else{
-    sellTrigger = sup[0] ?? piv.S1;
+    sellTrigger = lo20;
     [sellT1, sellT2] = sellTargets(sellTrigger);
     sellSL = clampSellSL(sellTrigger, res[0]);
   }
@@ -1379,7 +1384,7 @@ function render(meta, bars){
     el('buyLevel').textContent = fmtNum(plan.buyTrigger);
     const buyRR = (plan.buyT1-plan.buyTrigger)/(plan.buyTrigger-plan.buySL);
     el('buyRows').innerHTML = rowsHTML([
-      ['Entry (on breakout close above)', fmtNum(plan.buyTrigger)],
+      ['1-month high — iske upar close par buy', fmtNum(plan.buyTrigger)],
       ['Target 1', fmtNum(plan.buyT1)],
       ['Target 2', fmtNum(plan.buyT2)],
       ['Stop Loss', fmtNum(plan.buySL)],
@@ -1405,7 +1410,7 @@ function render(meta, bars){
     el('sellLevel').textContent = fmtNum(plan.sellTrigger);
     const sellRR = (plan.sellTrigger-plan.sellT1)/(plan.sellSL-plan.sellTrigger);
     el('sellRows').innerHTML = rowsHTML([
-      ['Entry (on breakdown close below)', fmtNum(plan.sellTrigger)],
+      ['1-month low — iske niche close par sell', fmtNum(plan.sellTrigger)],
       ['Target 1', fmtNum(plan.sellT1)],
       ['Target 2', fmtNum(plan.sellT2)],
       ['Stop Loss', fmtNum(plan.sellSL)],
@@ -1425,8 +1430,8 @@ function render(meta, bars){
       `Agar price <b>${fmtNum(plan.sellSL)}</b> ke upar close kare to breakdown fail — exit kar dena.`;
   }else{
     el('planNote').innerHTML =
-      `📌 <b>Simple rule:</b> Jab tak price <b>${fmtNum(plan.buyTrigger)}</b> ke upar close na kare, buying avoid karein — `+
-      `aur <b>${fmtNum(plan.sellTrigger)}</b> ke niche close hone par hi selling/short ka socheiN. `+
+      `📌 <b>Simple rule:</b> <b>${fmtNum(plan.buyTrigger)}</b> pichle 1 mahine ka HIGH hai — jab tak price iske upar close na kare, buying avoid karein — `+
+      `aur <b>${fmtNum(plan.sellTrigger)}</b> (1 mahine ka LOW) ke niche close hone par hi selling/short ka socheiN. `+
       `Beech mein (range ke andar) price choppy rehta hai. Swing style: stop-loss tight hai (entry se 2–4%) aur targets bade (10–20%) — `+
       `10 mein se 4 trade bhi chale to profit mein rahoge. Entry ke baad stop-loss zaroor lagayein.`;
   }
