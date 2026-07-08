@@ -371,6 +371,18 @@ nav{
   border-radius:10px;padding:12px 16px;
 }
 
+/* simple levels */
+.lvl-row{padding:10px 0;border-bottom:1px solid rgba(30,42,63,0.5)}
+.lvl-row:last-of-type{border-bottom:none}
+.lvl-lab{display:block;font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:600}
+.lvl-chip{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
+  padding:7px 14px;border-radius:9px;margin:0 8px 6px 0;border:1px solid;
+}
+.lvl-r{color:var(--red);border-color:rgba(255,59,92,0.4);background:rgba(255,59,92,0.07)}
+.lvl-s{color:var(--green);border-color:rgba(0,214,143,0.4);background:rgba(0,214,143,0.07)}
+.lvl-hint{font-size:12px;color:var(--text-dim);margin-top:10px;line-height:1.6}
+
 /* recommendation */
 .reco-badge{
   display:inline-block;
@@ -568,36 +580,16 @@ footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var
     </div>
 
     <div class="grid2">
-      <!-- TREND -->
+      <!-- SIMPLE SUPPORT / RESISTANCE -->
       <div class="card">
-        <h3><span class="ico">📊</span> TREND &amp; INDICATORS</h3>
-        <div id="trendRows"></div>
+        <h3><span class="ico">🧱</span> SUPPORT &amp; RESISTANCE</h3>
+        <div id="lvlSimple"></div>
       </div>
 
       <!-- PATTERNS -->
       <div class="card">
-        <h3><span class="ico">🔍</span> CHART PATTERNS DETECTED</h3>
+        <h3><span class="ico">🔍</span> CHART PATTERNS</h3>
         <div id="patterns"></div>
-      </div>
-    </div>
-
-    <div class="grid2">
-      <!-- SUPPORT / RESISTANCE -->
-      <div class="card">
-        <h3><span class="ico">🧱</span> SUPPORT &amp; RESISTANCE</h3>
-        <table class="lvl-table">
-          <thead><tr><th>Type</th><th>Level</th><th>Distance</th><th>Strength</th></tr></thead>
-          <tbody id="srBody"></tbody>
-        </table>
-      </div>
-
-      <!-- PIVOTS -->
-      <div class="card">
-        <h3><span class="ico">🎯</span> PIVOT POINTS (CLASSIC)</h3>
-        <table class="lvl-table">
-          <thead><tr><th>Level</th><th>Price</th></tr></thead>
-          <tbody id="pivBody"></tbody>
-        </table>
       </div>
     </div>
 
@@ -834,16 +826,6 @@ function detectBreakout(bars, sr){
   return null;
 }
 
-function pivotPoints(bars){
-  const d = bars[bars.length-1]; // most recent completed day
-  const P = (d.h + d.l + d.c)/3;
-  return {
-    P,
-    R1: 2*P - d.l, S1: 2*P - d.h,
-    R2: P + (d.h - d.l), S2: P - (d.h - d.l),
-    R3: d.h + 2*(P - d.l), S3: d.l - 2*(d.h - P),
-  };
-}
 
 /* =====================================================================
    TREND + PATTERNS
@@ -1259,7 +1241,6 @@ function render(meta, bars){
   // analysis
   const trend = analyseTrend(bars);
   const sr = supportResistance(bars);
-  const piv = pivotPoints(bars);
   const bo = detectBreakout(bars, sr);
   const patterns = detectPatterns(bars, sr, trend, bo);
   const verdict = computeVerdict(bars, trend, patterns);
@@ -1284,24 +1265,13 @@ function render(meta, bars){
     fill.style.left=(50-half)+'%'; fill.style.width=half+'%'; fill.style.background='var(--red)';
   }
 
-  // trend & indicators
-  const t = trend;
-  const trendCls = t.dir==='UPTREND'?'up':t.dir==='DOWNTREND'?'down':'neutral';
-  const rsiTxt = t.rsi==null?'—':`${t.rsi.toFixed(1)} ${t.rsi>70?'(Overbought ⚠️)':t.rsi<30?'(Oversold 💡)':t.rsi>=55?'(Bullish zone)':t.rsi<=45?'(Bearish zone)':'(Neutral)'}`;
-  const aligned = (t.dir==='UPTREND' && t.wDir==='UP') || (t.dir==='DOWNTREND' && t.wDir==='DOWN');
-  const wCls = t.wDir==='UP'?'up':t.wDir==='DOWN'?'down':'neutral';
-  const atrV = atr(bars);
-  el('trendRows').innerHTML = [
-    row('Primary Trend (Daily)', `<span class="${trendCls}">${t.dir}${t.strength!=='—'?' · '+t.strength:''}</span>`),
-    row('Weekly Trend', `<span class="${wCls}">${t.wDir}${aligned?' · ✓ daily se aligned (swing ke liye best)':''}</span>`),
-    row('ATR (14) — avg daily move', atrV ? `${fmtNum(atrV)} (${(atrV/price*100).toFixed(1)}%)` : '—'),
-    row('Price vs 20-Day SMA', cmpTxt(price, t.sma20)),
-    row('Price vs 50-Day SMA', cmpTxt(price, t.sma50)),
-    row('Price vs 200-Day SMA', cmpTxt(price, t.sma200)),
-    row('20-SMA Slope (10 days)', `<span class="${t.slope20>=0?'up':'down'}">${t.slope20>=0?'+':''}${t.slope20.toFixed(2)}%</span>`),
-    row('RSI (14)', `<span class="${t.rsi>=55?'up':t.rsi<=45?'down':'neutral'}">${rsiTxt}</span>`),
-    row('MACD (12,26,9)', `<span class="${t.macd.hist>=0?'up':'down'}">${t.macd.hist>=0?'Bullish':'Bearish'} · hist ${t.macd.hist>=0?'+':''}${t.macd.hist.toFixed(2)}</span>`),
-  ].join('');
+  // simple support & resistance
+  const resChips = sr.resistances.slice(0,3).map(r=>`<span class="lvl-chip lvl-r">${fmtNum(r.level)}</span>`).join('');
+  const supChips = sr.supports.slice(0,3).map(x=>`<span class="lvl-chip lvl-s">${fmtNum(x.level)}</span>`).join('');
+  el('lvlSimple').innerHTML =
+    `<div class="lvl-row"><span class="lvl-lab">🔴 Resistance — upar ke important levels</span><div>${resChips||'<span class="lvl-hint">price 52-week high ke paas hai, upar koi bada level nahi</span>'}</div></div>`+
+    `<div class="lvl-row"><span class="lvl-lab">🟢 Support — niche ke important levels</span><div>${supChips||'—'}</div></div>`+
+    `<p class="lvl-hint">Simple rule: resistance ke <b>upar close</b> = strength (buying aa sakti hai) · support ke <b>niche close</b> = weakness (avoid/exit)</p>`;
 
   // patterns
   el('patterns').innerHTML = patterns.map(p=>`
@@ -1312,25 +1282,6 @@ function render(meta, bars){
         <div class="pat-desc">${p.desc}</div>
       </div>
     </div>`).join('');
-
-  // S/R table (resistances top-down, then supports)
-  const srRows = [];
-  [...sr.resistances].reverse().forEach((r,idx)=>{
-    const n = sr.resistances.length - idx;
-    srRows.push(`<tr><td><span class="tag tag-res">R${n}</span></td><td>${fmtNum(r.level)}</td><td class="down">${pctFrom(r.level, price)}</td><td>${strengthTag(r.touches)}</td></tr>`);
-  });
-  srRows.push(`<tr><td><span class="tag" style="background:rgba(0,225,255,0.12);color:var(--accent)">CMP</span></td><td><b>${fmtNum(price)}</b></td><td>—</td><td>Current Price</td></tr>`);
-  sr.supports.forEach((s,idx)=>{
-    srRows.push(`<tr><td><span class="tag tag-sup">S${idx+1}</span></td><td>${fmtNum(s.level)}</td><td class="up">${pctFrom(s.level, price)}</td><td>${strengthTag(s.touches)}</td></tr>`);
-  });
-  el('srBody').innerHTML = srRows.join('');
-
-  // pivots
-  el('pivBody').innerHTML = [
-    ['R3',piv.R3,'tag-res'],['R2',piv.R2,'tag-res'],['R1',piv.R1,'tag-res'],
-    ['Pivot',piv.P,'tag-strong'],
-    ['S1',piv.S1,'tag-sup'],['S2',piv.S2,'tag-sup'],['S3',piv.S3,'tag-sup'],
-  ].map(([n,v,c])=>`<tr><td><span class="tag ${c}">${n}</span></td><td>${fmtNum(v)}</td></tr>`).join('');
 
   // recommendation
   const rb = el('recoBadge');
@@ -1362,16 +1313,7 @@ function render(meta, bars){
   el('results').classList.add('show');
   requestAnimationFrame(()=> drawChart(bars, trend, sr));
 
-  function row(name, val){ return `<div class="ind-row"><div class="ind-name">${name}</div><div class="ind-val">${val}</div></div>`; }
-  function cmpTxt(p, sma){
-    if(!sma) return '<span class="neutral">insufficient data</span>';
-    const d = (p-sma)/sma*100;
-    return `<span class="${d>=0?'up':'down'}">${d>=0?'Above':'Below'} (${d>=0?'+':''}${d.toFixed(1)}%) · ${fmtNum(sma)}</span>`;
-  }
-  function strengthTag(touches){
-    return touches>=3 ? '<span class="tag tag-strong">STRONG · '+touches+' touches</span>'
-         : touches===2 ? 'Medium · 2 touches' : 'Minor · 1 touch';
-  }
+
 }
 
 /* =====================================================================
