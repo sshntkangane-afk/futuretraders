@@ -953,42 +953,47 @@ function buildReco(bars, trend, sr, bo){
   const upLvl = sr.resistances[0] ? sr.resistances[0].level : hi20;
   const dnLvl = sr.supports[0] ? sr.supports[0].level : lo20;
   const daily = trend.dir, weekly = trend.wDir, r = trend.rsi;
+  // dip-buy zone in an uptrend: between the swing-low support and the 20-day average
+  const dipHi = (trend.sma20 && trend.sma20 < price) ? Math.max(trend.sma20, dnLvl) : dnLvl;
+  const dipZone = Math.abs(dipHi - dnLvl)/price < 0.005
+    ? `<b>${fmtNum(dnLvl)}</b> ke paas`
+    : `<b>${fmtNum(Math.min(dnLvl, dipHi))} – ${fmtNum(Math.max(dnLvl, dipHi))}</b> zone mein`;
   const lines = [];
   let label, cls;
 
   if(bo && bo.dir===-1){
     label = '❌ AVOID KARO'; cls = 'reco-avoid';
     lines.push(['💥', `<b>${fmtNum(bo.level)}</b> ka support abhi-abhi toota hai — aur girawat aa sakti hai. Ye stock abhi <b>avoid</b> karo.`]);
-    lines.push(['👀', `Dobara tabhi dekho jab price wapas <b>${fmtNum(bo.level)}</b> ke upar close kare.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> abhi kahin se nahi — pehle price wapas <b>${fmtNum(bo.level)}</b> ke upar close kare, tabhi buying ka sochna.`]);
   }else if(daily==='DOWNTREND' && weekly==='DOWN'){
     label = '❌ AVOID KARO'; cls = 'reco-avoid';
     lines.push(['📉', `Daily aur weekly <b>dono downtrend</b> mein hain — buying ka sawal hi nahi. Ye stock abhi avoid karo.`]);
-    lines.push(['👀', `Trend badalne ka pehla signal: <b>${fmtNum(upLvl)}</b> (swing high) ke upar close. Tab tak door raho.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> abhi kahin se nahi. Trend badalne ka pehla signal <b>${fmtNum(upLvl)}</b> (swing high) ke upar close — uske baad hi buying shuru ho sakti hai.`]);
     if(r!=null && r<30) lines.push(['⚠️', `RSI oversold (${r.toFixed(0)}) hai — bounce aa sakta hai, par girta hua chaku pakadna nahi. Trend ke khilaf mat jao.`]);
   }else if(daily==='DOWNTREND'){
     label = '❌ ABHI AVOID'; cls = 'reco-avoid';
     lines.push(['📉', `Daily <b>downtrend</b> mein hai — abhi buying ke liye nahi hai.`]);
-    lines.push(['👀', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to trend sudhrega — tab dobara analysis karo.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> abhi nahi — <b>${fmtNum(upLvl)}</b> (swing high) ke upar close hone ke baad hi buying aa sakti hai. Tab dobara analysis karo.`]);
   }else if(bo && bo.dir===1){
     label = '🚀 BREAKOUT — BUYING ZONE'; cls = 'reco-buy';
     lines.push(['✅', `<b>${fmtNum(bo.level)}</b> ka resistance tod chuka hai — stock strong hai, buying aa rahi hai.`]);
-    lines.push(['🎯', `<b>${fmtNum(bo.level)}</b> ke paas dip/retest aaye to wahan buying ka best mauka hota hai.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> <b>${fmtNum(bo.level)}</b> ke paas (retest) — dip aaye to yahi best zone hai. Aggressive ho to CMP par bhi, strict SL ke saath.`]);
     lines.push(['⚠️', `Agar wapas <b>${fmtNum(bo.level*0.98)}</b> ke niche close kare to breakout fail — nikal jao.`]);
   }else if(daily==='UPTREND' && weekly==='UP'){
     label = '✅ BUYING KE LIYE ACCHA'; cls = 'reco-buy';
     lines.push(['📈', `Stock <b>uptrend</b> mein hai — daily aur weekly dono UP. Buying ke liye accha stock hai.`]);
-    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to nayi buying aa sakti hai.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> dip aaye to ${dipZone} buying ho sakti hai — ya <b>${fmtNum(upLvl)}</b> (swing high) ke upar breakout par nayi buying.`]);
     lines.push(['🛡️', `Jab tak <b>${fmtNum(dnLvl)}</b> (swing low) ke upar hai, trend strong hai. Iske niche close = weakness.`]);
     if(r!=null && r>75) lines.push(['⚠️', `RSI overbought (${r.toFixed(0)}) — thoda ruk kar ya dip par socho, bhaag mat lo.`]);
   }else if(daily==='UPTREND'){
     label = '🟡 THIK HAI — DHYAN SE'; cls = 'reco-wait';
     lines.push(['📈', `Daily uptrend hai par weekly abhi ${weekly==='DOWN'?'down':'confirm nahi'} — poora bharosa nahi.`]);
-    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> ke upar close ho to buying aa sakti hai — chhote size mein hi socho.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> sirf <b>${fmtNum(upLvl)}</b> ke upar close hone par — chhote size mein. Abhi jaldi mat karo.`]);
     lines.push(['🛡️', `<b>${fmtNum(dnLvl)}</b> ke niche close ho to avoid.`]);
   }else{
     label = '⏸️ WAIT KARO'; cls = 'reco-wait';
     lines.push(['📦', `Abhi <b>sideways/range</b> mein hai — na clear buying, na selling. Range ke andar trade choppy hota hai.`]);
-    lines.push(['🎯', `<b>${fmtNum(upLvl)}</b> (swing high) ke upar close ho to buying aa sakti hai.`]);
+    lines.push(['🛒', `<b>Buying kahan se:</b> range ke andar se nahi — sirf <b>${fmtNum(upLvl)}</b> (swing high) ke upar close hone par buying aa sakti hai.`]);
     lines.push(['⚠️', `<b>${fmtNum(dnLvl)}</b> (swing low) ke niche close ho to weakness — avoid.`]);
   }
   return {label, cls, lines, upLvl, dnLvl};
