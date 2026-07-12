@@ -957,19 +957,17 @@ function buildReco(bars, trend, sr, bo){
     const chunk = bars.slice(Math.max(0, i-5), i);
     wk.unshift(Math.max(...chunk.map(b=>b.h)));
   }
-  let upLvl = null;
-  for(let i = wk.length-3; i >= 2; i--){
-    const isPivot = wk[i] > wk[i-1] && wk[i] > wk[i-2] && wk[i] > wk[i+1] && wk[i] > wk[i+2];
-    if(isPivot && wk[i] > price*1.002){ upLvl = wk[i]; break; }
+  // proper swing high = weekly top with 2 lower weeks before and at least
+  // 1 lower week after; pick the NEAREST one above current price
+  const cands = [];
+  for(let i = 2; i <= wk.length-2; i++){
+    const pivot = wk[i] > wk[i-1] && wk[i] > wk[i-2] && wk[i] > wk[i+1]
+               && (i+2 >= wk.length || wk[i] > wk[i+2]);
+    if(pivot && wk[i] > price*1.002) cands.push(wk[i]);
   }
-  if(!upLvl) upLvl = Math.max(...bars.slice(-40).map(b=>b.h));
+  let upLvl = cands.length ? Math.min(...cands) : Math.max(...bars.slice(-40).map(b=>b.h));
   const dnLvl = sr.supports[0] ? sr.supports[0].level : lo20;
   const daily = trend.dir, weekly = trend.wDir, r = trend.rsi;
-  // dip-buy zone in an uptrend: between the swing-low support and the 20-day average
-  const dipHi = (trend.sma20 && trend.sma20 < price) ? Math.max(trend.sma20, dnLvl) : dnLvl;
-  const dipZone = Math.abs(dipHi - dnLvl)/price < 0.005
-    ? `<b>${fmtNum(dnLvl)}</b> ke paas`
-    : `<b>${fmtNum(Math.min(dnLvl, dipHi))} – ${fmtNum(Math.max(dnLvl, dipHi))}</b> zone mein`;
   const lines = [];
   let label, cls;
 
@@ -989,12 +987,12 @@ function buildReco(bars, trend, sr, bo){
   }else if(bo && bo.dir===1){
     label = '🚀 BREAKOUT — BUYING ZONE'; cls = 'reco-buy';
     lines.push(['✅', `<b>${fmtNum(bo.level)}</b> ka resistance tod chuka hai — stock strong hai, buying aa rahi hai.`]);
-    lines.push(['🛒', `<b>Buying kahan se:</b> <b>${fmtNum(bo.level)}</b> ke paas (retest) — dip aaye to yahi best zone hai. Aggressive ho to CMP par bhi, strict SL ke saath.`]);
+    lines.push(['🛒', `<b>Entry:</b> swing high <b>${fmtNum(bo.level)}</b> break ho chuka hai — yahi entry ka signal hai. Strict SL ke saath hi lena.`]);
     lines.push(['⚠️', `Agar wapas <b>${fmtNum(bo.level*0.98)}</b> ke niche close kare to breakout fail — nikal jao.`]);
   }else if(daily==='UPTREND' && weekly==='UP'){
     label = '✅ BUYING KE LIYE ACCHA'; cls = 'reco-buy';
     lines.push(['📈', `Stock <b>uptrend</b> mein hai — daily aur weekly dono UP. Buying ke liye accha stock hai.`]);
-    lines.push(['🛒', `<b>Buying kahan se:</b> dip aaye to ${dipZone} buying ho sakti hai — ya <b>${fmtNum(upLvl)}</b> (weekly swing high) ke upar breakout par nayi buying.`]);
+    lines.push(['🛒', `<b>Entry kahan se:</b> sirf <b>${fmtNum(upLvl)}</b> (weekly swing high) break hone par — jab price iske upar close kare, tab entry. Dip-buy nahi, high break par hi.`]);
     lines.push(['🛡️', `Jab tak <b>${fmtNum(dnLvl)}</b> (swing low) ke upar hai, trend strong hai. Iske niche close = weakness.`]);
     if(r!=null && r>75) lines.push(['⚠️', `RSI overbought (${r.toFixed(0)}) — thoda ruk kar ya dip par socho, bhaag mat lo.`]);
   }else if(daily==='UPTREND'){
