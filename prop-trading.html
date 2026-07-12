@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Future Traders — Funded Trading Accounts | Nifty, BankNifty, Stocks &amp; Crypto</title>
+<title>Indian Prop Firm — Funded Trading Accounts | Nifty, BankNifty, Stocks &amp; Crypto</title>
 <meta name="description" content="Get funded up to ₹10 Lakh / $50,000 trading capital. Pass a simple 2-step evaluation and keep up to 90% of your profits. Indian markets &amp; Crypto." />
 
 <!-- Google Fonts (only external dependency, as allowed) -->
@@ -341,7 +341,7 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
      ========================================================= -->
 <header>
   <div class="container nav">
-    <a href="#top" class="logo"><span class="dot"></span><span id="nav-firm-name">FUTURE TRADERS</span></a>
+    <a href="#top" class="logo"><span class="dot"></span><span id="nav-firm-name">INDIAN PROP FIRM</span></a>
     <nav class="nav-links">
       <a href="#how">How It Works</a>
       <a href="#plans">Plans</a>
@@ -518,7 +518,7 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
       <div class="feature-card reveal">
         <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 1 1-4-7.2"/><path d="M21 4l-9 9-3-3"/></svg></div>
         <h3>24/7 Support</h3>
-        <p>Our team is available on Telegram &amp; WhatsApp for any questions, anytime.</p>
+        <p>Our team is available on WhatsApp for any questions, anytime.</p>
       </div>
     </div>
   </div>
@@ -558,15 +558,9 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
   <div class="container">
     <div class="footer-grid">
       <div>
-        <a href="#top" class="logo"><span class="dot"></span><span id="footer-firm-name">FUTURE TRADERS</span></a>
+        <a href="#top" class="logo"><span class="dot"></span><span id="footer-firm-name">INDIAN PROP FIRM</span></a>
         <p style="margin-top:16px">A funded trading program offering capital for Indian markets and Crypto. Trade our money, keep up to 90% of the profits.</p>
         <div class="social-row">
-          <a href="#" id="link-telegram" target="_blank" rel="noopener" aria-label="Telegram">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          </a>
-          <a href="#" id="link-instagram" target="_blank" rel="noopener" aria-label="Instagram">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
-          </a>
           <a href="#" id="link-whatsapp" target="_blank" rel="noopener" aria-label="WhatsApp">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg>
           </a>
@@ -584,7 +578,6 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
       <div>
         <h4>Contact</h4>
         <ul>
-          <li><a href="#" id="link-telegram-2" target="_blank" rel="noopener">Telegram Channel</a></li>
           <li><a href="#" id="link-whatsapp-2" target="_blank" rel="noopener">WhatsApp Support</a></li>
         </ul>
       </div>
@@ -592,7 +585,7 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
     <div class="disclaimer">
       <b>Risk Disclaimer:</b> Trading in equities, derivatives (Futures &amp; Options), and cryptocurrencies carries a high level of risk and may not be suitable for everyone. Simulated/evaluation accounts do not involve real capital during the challenge phase, and any performance shown does not guarantee similar results on funded or live accounts. Past performance is not indicative of future results. Funded accounts are proprietary firm capital — traders do not deposit trading capital and are not purchasing a financial product or investment. Challenge fees pay for access to the evaluation platform and data. Please read and understand all program rules before purchasing a challenge. We are not a licensed broker, investment advisor, or financial institution, and nothing on this website constitutes financial advice. Trade responsibly and only risk what you can afford in your personal capacity outside of this program.
     </div>
-    <p class="copyright">© <span id="year"></span> Future Traders. All rights reserved.</p>
+    <p class="copyright">© <span id="year"></span> Indian Prop Firm. All rights reserved.</p>
   </div>
 </footer>
 
@@ -608,13 +601,11 @@ footer{border-top:1px solid var(--line);padding:60px 0 30px;background:var(--bg-
    needs to change.
    ========================================================= */
 const CONFIG = {
-  firmName: "Future Traders",
+  firmName: "Indian Prop Firm",
 
-  // Contact links — used by WhatsApp CTA buttons and footer icons.
+  // Contact link — used by all "Start Challenge" CTAs and the footer.
   // WhatsApp number must be in international format WITHOUT "+" or spaces.
   whatsappNumber: "919699781072",
-  telegramUrl: "https://t.me/Future_Traders_In",
-  instagramUrl: "https://instagram.com/", // TODO: add your Instagram handle
 
   // Challenge plans grouped by market tab.
   // "fee" is in the tab's local currency (₹ for indian, $ for crypto).
@@ -767,12 +758,10 @@ function scrollToId(id){
 function applyConfigToPage(){
   document.getElementById("nav-firm-name").textContent = CONFIG.firmName.toUpperCase();
   document.getElementById("footer-firm-name").textContent = CONFIG.firmName.toUpperCase();
-  document.title = document.title.replace("Future Traders", CONFIG.firmName);
+  document.title = document.title.replace("Indian Prop Firm", CONFIG.firmName);
 
   const waLink = `https://wa.me/${CONFIG.whatsappNumber}`;
   ["link-whatsapp", "link-whatsapp-2"].forEach(id => document.getElementById(id).href = waLink);
-  ["link-telegram", "link-telegram-2"].forEach(id => document.getElementById(id).href = CONFIG.telegramUrl);
-  document.getElementById("link-instagram").href = CONFIG.instagramUrl;
 
   document.getElementById("year").textContent = new Date().getFullYear();
 }
