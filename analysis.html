@@ -955,17 +955,33 @@ function buildReco(bars, trend, sr, bo){
   const wk = [];
   for(let i = bars.length; i > 0; i -= 5){
     const chunk = bars.slice(Math.max(0, i-5), i);
-    wk.unshift(Math.max(...chunk.map(b=>b.h)));
+    wk.unshift({h: Math.max(...chunk.map(b=>b.h)), l: Math.min(...chunk.map(b=>b.l))});
   }
-  // proper swing high = weekly top with 2 lower weeks before and at least
-  // 1 lower week after; pick the NEAREST one above current price
-  const cands = [];
+  // proper swing high = weekly top (2 lower weekly highs before, 1+ after)
+  // jiske baad price sach mein retrace hua ho (agle 2 hafton mein >=3% dip) —
+  // chhote bumps proper swing nahi maane jaate
+  const wPivots = [];
   for(let i = 2; i <= wk.length-2; i++){
-    const pivot = wk[i] > wk[i-1] && wk[i] > wk[i-2] && wk[i] > wk[i+1]
-               && (i+2 >= wk.length || wk[i] > wk[i+2]);
-    if(pivot && wk[i] > price*1.002) cands.push(wk[i]);
+    const pivot = wk[i].h > wk[i-1].h && wk[i].h > wk[i-2].h && wk[i].h > wk[i+1].h
+               && (i+2 >= wk.length || wk[i].h > wk[i+2].h);
+    if(!pivot) continue;
+    const afterLow = Math.min(wk[i+1].l, i+2 < wk.length ? wk[i+2].l : wk[i+1].l);
+    if(afterLow <= wk[i].h*0.97) wPivots.push(wk[i].h);
   }
-  let upLvl = cands.length ? Math.min(...cands) : Math.max(...bars.slice(-40).map(b=>b.h));
+  // buying trigger = NEAREST proper weekly swing high above price
+  const above = wPivots.filter(p => p > price*1.002);
+  const upLvl = above.length ? Math.min(...above) : Math.max(...bars.slice(-40).map(b=>b.h));
+  // fresh WEEKLY-swing breakout: the highest proper pivot below price was
+  // crossed within the last 10 sessions (minor daily swings don't count)
+  let wBreak = null;
+  const below = wPivots.filter(p => p <= price*1.002);
+  if(below.length){
+    const cand = Math.max(...below);
+    const closes2 = bars.map(b=>b.c);
+    for(let i = closes2.length-1; i > closes2.length-11 && i > 0; i--){
+      if(closes2[i] > cand*1.002 && closes2[i-1] <= cand*1.002){ wBreak = cand; break; }
+    }
+  }
   const dnLvl = sr.supports[0] ? sr.supports[0].level : lo20;
   const daily = trend.dir, weekly = trend.wDir, r = trend.rsi;
   const lines = [];
@@ -984,11 +1000,12 @@ function buildReco(bars, trend, sr, bo){
     label = '❌ ABHI AVOID'; cls = 'reco-avoid';
     lines.push(['📉', `Daily <b>downtrend</b> mein hai — abhi buying ke liye nahi hai.`]);
     lines.push(['🛒', `<b>Buying kahan se:</b> abhi nahi — <b>${fmtNum(upLvl)}</b> (weekly swing high) ke upar close hone ke baad hi buying aa sakti hai. Tab dobara analysis karo.`]);
-  }else if(bo && bo.dir===1){
+  }else if(wBreak){
     label = '🚀 BREAKOUT — BUYING ZONE'; cls = 'reco-buy';
-    lines.push(['✅', `<b>${fmtNum(bo.level)}</b> ka resistance tod chuka hai — stock strong hai, buying aa rahi hai.`]);
-    lines.push(['🛒', `<b>Entry:</b> swing high <b>${fmtNum(bo.level)}</b> break ho chuka hai — yahi entry ka signal hai. Strict SL ke saath hi lena.`]);
-    lines.push(['⚠️', `Agar wapas <b>${fmtNum(bo.level*0.98)}</b> ke niche close kare to breakout fail — nikal jao.`]);
+    lines.push(['✅', `Weekly swing high <b>${fmtNum(wBreak)}</b> tod chuka hai — stock strong hai, buying aa rahi hai.`]);
+    lines.push(['🛒', `<b>Entry:</b> swing high <b>${fmtNum(wBreak)}</b> break ho chuka hai — yahi entry ka signal hai. Strict SL ke saath hi lena.`]);
+    lines.push(['⚠️', `Agar wapas <b>${fmtNum(wBreak*0.98)}</b> ke niche close kare to breakout fail — nikal jao.`]);
+    if(above.length) lines.push(['🎯', `Agla bada level: <b>${fmtNum(upLvl)}</b> (agla weekly swing high).`]);
   }else if(daily==='UPTREND' && weekly==='UP'){
     label = '✅ BUYING KE LIYE ACCHA'; cls = 'reco-buy';
     lines.push(['📈', `Stock <b>uptrend</b> mein hai — daily aur weekly dono UP. Buying ke liye accha stock hai.`]);
